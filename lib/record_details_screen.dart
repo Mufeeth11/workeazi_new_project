@@ -194,7 +194,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       final file = File("${output.path}/record_$_title.pdf");
       await file.writeAsBytes(await pdf.save());
 
-      final xFile = XFile(file.path);
+      final xFile = XFile(file.path, mimeType: 'application/pdf');
       await Share.shareXFiles([xFile], text: 'PDF Export for $_title');
     } catch (e) {
       if (mounted) {
@@ -229,7 +229,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       final file = File("${output.path}/record_$_title.docx");
       await file.writeAsString(buffer.toString());
 
-      final xFile = XFile(file.path);
+      final xFile = XFile(file.path, mimeType: 'text/plain');
       await Share.shareXFiles([xFile], text: 'DOCX Export for $_title');
     } catch (e) {
       if (mounted) {
@@ -267,7 +267,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       final file = File("${output.path}/record_$_title.csv");
       await file.writeAsString(buffer.toString());
 
-      final xFile = XFile(file.path);
+      final xFile = XFile(file.path, mimeType: 'text/csv');
       await Share.shareXFiles([xFile], text: 'CSV Export for $_title');
     } catch (e) {
       if (mounted) {
