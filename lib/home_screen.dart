@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isSortDescending = true;
 
   bool get _canRead => _accessPermissions.toLowerCase().contains('read');
   bool get _canWrite => _accessPermissions.toLowerCase().contains('write');
@@ -286,6 +287,61 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       _showErrorDialog('Failed to save changes: $e');
     }
+  }
+
+  void _showSortSheet() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext context) => CupertinoActionSheet(
+        title: const Text('Sort Records By'),
+        message: const Text('Select a chronological order for the records'),
+        actions: <CupertinoActionSheetAction>[
+          CupertinoActionSheetAction(
+            onPressed: () {
+              setState(() {
+                _isSortDescending = true;
+              });
+              Navigator.pop(context);
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('Updated Time: Newest First'),
+                if (_isSortDescending) ...[
+                  const SizedBox(width: 8),
+                  const Icon(CupertinoIcons.check_mark, size: 18),
+                ],
+              ],
+            ),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              setState(() {
+                _isSortDescending = false;
+              });
+              Navigator.pop(context);
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('Updated Time: Oldest First'),
+                if (!_isSortDescending) ...[
+                  const SizedBox(width: 8),
+                  const Icon(CupertinoIcons.check_mark, size: 18),
+                ],
+              ],
+            ),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDestructiveAction: true,
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
   }
 
   DateTime _parseDateString(String dateStr) {
@@ -549,7 +605,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     setState(() {
-      _dataList.insert(0, alignedRecord);
+      _dataList.add(alignedRecord);
     });
 
     // 2. Perform the API call in the background without blocking the UI
@@ -1020,6 +1076,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return false;
     }).toList();
 
+    final displayList = _isSortDescending
+        ? filteredList.reversed.toList()
+        : filteredList;
+
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
         middle: Text('Dashboard', style: TextStyle(color: Colors.black)),
@@ -1052,7 +1112,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       'You do not have read access to view this data.\nPlease contact your administrator.',
                     )
                   else ...[
-                    // Smooth, Premium Aesthetic Search Bar
+                    // Smooth, Premium Aesthetic Search & Sort Bar Row
                     if (_dataList.isNotEmpty)
                       SliverToBoxAdapter(
                         child: Padding(
@@ -1062,69 +1122,102 @@ class _HomeScreenState extends State<HomeScreen> {
                             top: 16,
                             bottom: 4,
                           ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: CupertinoColors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: CupertinoColors.systemGrey.withValues(
-                                    alpha: 0.08,
-                                  ),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: CupertinoTextField(
-                              controller: _searchController,
-                              placeholder: 'Search records...',
-                              style: const TextStyle(
-                                fontSize: 15,
-                                color: CupertinoColors.black,
-                              ),
-                              placeholderStyle: const TextStyle(
-                                color: CupertinoColors.systemGrey,
-                                fontSize: 15,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              decoration: null,
-                              prefix: const Padding(
-                                padding: EdgeInsets.only(left: 14),
-                                child: Icon(
-                                  CupertinoIcons.search,
-                                  size: 20,
-                                  color: Color(0xFF667EEA),
-                                ),
-                              ),
-                              suffix: _searchQuery.isNotEmpty
-                                  ? CupertinoButton(
-                                      padding: EdgeInsets.zero,
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        setState(() {
-                                          _searchQuery = '';
-                                        });
-                                      },
-                                      child: const Padding(
-                                        padding: EdgeInsets.only(right: 14),
-                                        child: Icon(
-                                          CupertinoIcons.clear,
-                                          size: 18,
-                                          color: CupertinoColors.systemGrey3,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: CupertinoColors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: CupertinoColors.systemGrey.withValues(
+                                          alpha: 0.08,
                                         ),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
                                       ),
-                                    )
-                                  : null,
-                              onChanged: (val) {
-                                setState(() {
-                                  _searchQuery = val.trim();
-                                });
-                              },
-                            ),
+                                    ],
+                                  ),
+                                  child: CupertinoTextField(
+                                    controller: _searchController,
+                                    placeholder: 'Search records...',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: CupertinoColors.black,
+                                    ),
+                                    placeholderStyle: const TextStyle(
+                                      color: CupertinoColors.systemGrey,
+                                      fontSize: 15,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 14,
+                                    ),
+                                    decoration: null,
+                                    prefix: const Padding(
+                                      padding: EdgeInsets.only(left: 14),
+                                      child: Icon(
+                                        CupertinoIcons.search,
+                                        size: 20,
+                                        color: Color(0xFF667EEA),
+                                      ),
+                                    ),
+                                    suffix: _searchQuery.isNotEmpty
+                                        ? CupertinoButton(
+                                            padding: EdgeInsets.zero,
+                                            onPressed: () {
+                                              _searchController.clear();
+                                              setState(() {
+                                                _searchQuery = '';
+                                              });
+                                            },
+                                            child: const Padding(
+                                              padding: EdgeInsets.only(right: 14),
+                                              child: Icon(
+                                                CupertinoIcons.clear,
+                                                size: 18,
+                                                color: CupertinoColors.systemGrey3,
+                                              ),
+                                            ),
+                                          )
+                                        : null,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _searchQuery = val.trim();
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              GestureDetector(
+                                onTap: _showSortSheet,
+                                child: Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: CupertinoColors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: CupertinoColors.systemGrey.withValues(
+                                          alpha: 0.08,
+                                        ),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    _isSortDescending
+                                        ? CupertinoIcons.sort_down
+                                        : CupertinoIcons.sort_up,
+                                    color: const Color(0xFF667EEA),
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -1191,7 +1284,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         'No Data',
                         'No records were found in the sheet.',
                       )
-                    else if (filteredList.isEmpty)
+                    else if (displayList.isEmpty)
                       _buildEmptyState(
                         CupertinoIcons.search,
                         'No Results Found',
@@ -1202,8 +1295,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: const EdgeInsets.all(16),
                         sliver: SliverList(
                           delegate: SliverChildBuilderDelegate(
-                            (context, index) => _buildCard(filteredList[index]),
-                            childCount: filteredList.length,
+                            (context, index) => _buildCard(displayList[index]),
+                            childCount: displayList.length,
                           ),
                         ),
                       ),
