@@ -190,16 +190,17 @@ class _HomeScreenState extends State<HomeScreen> {
   ) async {
     // 1. Instantly update the local memory state and rebuild (1 ms response!)
     final originalList = List<Map<String, String>>.from(_dataList);
-    
+
     final ivNoKey = item.keys.firstWhere(
       (k) => k.toLowerCase() == 'iv no',
       orElse: () => 'IV NO',
     );
     final targetIvNo = item[ivNoKey] ?? '';
-    
+
     int targetIndex = -1;
     for (int i = 0; i < _dataList.length; i++) {
-      if ((_dataList[i][ivNoKey] ?? '').toLowerCase() == targetIvNo.toLowerCase()) {
+      if ((_dataList[i][ivNoKey] ?? '').toLowerCase() ==
+          targetIvNo.toLowerCase()) {
         targetIndex = i;
         break;
       }
@@ -288,16 +289,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _deleteRow(Map<String, String> item) async {
     // 1. Instantly update the local memory state to "nil" and rebuild (1 ms response!)
     final originalList = List<Map<String, String>>.from(_dataList);
-    
+
     final ivNoKey = item.keys.firstWhere(
       (k) => k.toLowerCase() == 'iv no',
       orElse: () => 'IV NO',
     );
     final targetIvNo = item[ivNoKey] ?? '';
-    
+
     int targetIndex = -1;
     for (int i = 0; i < _dataList.length; i++) {
-      if ((_dataList[i][ivNoKey] ?? '').toLowerCase() == targetIvNo.toLowerCase()) {
+      if ((_dataList[i][ivNoKey] ?? '').toLowerCase() ==
+          targetIvNo.toLowerCase()) {
         targetIndex = i;
         break;
       }
@@ -452,76 +454,110 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Action buttons (Write + Delete) with icon and text
-            if (_canWrite || _canDelete) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (_canWrite)
-                    CupertinoButton(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      color: CupertinoColors.systemBlue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      onPressed: () => _showEditSheet(item),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            CupertinoIcons.pencil,
-                            size: 14,
-                            color: CupertinoColors.systemBlue,
-                          ),
-                          SizedBox(width: 5),
-                          Text(
-                            'Edit',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: CupertinoColors.systemBlue,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      minimumSize: Size(0, 0),
+            // Header Row: Date (Left) & Actions (Right)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Date Display with calendar icon
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      CupertinoIcons.calendar,
+                      size: 16,
+                      color: CupertinoColors.systemGrey,
                     ),
-                  if (_canWrite && _canDelete) const SizedBox(width: 8),
-                  if (_canDelete)
-                    CupertinoButton(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                    const SizedBox(width: 6),
+                    Text(
+                      item.entries
+                          .firstWhere(
+                            (entry) => entry.key.toLowerCase() == 'date',
+                            orElse: () => const MapEntry('Date', '-'),
+                          )
+                          .value,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: CupertinoColors.systemGrey,
                       ),
-                      color: CupertinoColors.systemRed.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      onPressed: () => _confirmDelete(item),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            CupertinoIcons.trash,
-                            size: 14,
-                            color: CupertinoColors.systemRed,
-                          ),
-                          SizedBox(width: 5),
-                          Text(
-                            'Delete',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: CupertinoColors.systemRed,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      minimumSize: Size(0, 0),
                     ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
+                  ],
+                ),
+                // Action buttons (Write + Delete) with icon and text
+                if (_canWrite || _canDelete)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_canWrite)
+                        CupertinoButton(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          color: CupertinoColors.systemBlue.withValues(
+                            alpha: 0.1,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          onPressed: () => _showEditSheet(item),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                CupertinoIcons.pencil,
+                                size: 14,
+                                color: CupertinoColors.systemBlue,
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                'Edit',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: CupertinoColors.systemBlue,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          minimumSize: Size(0, 0),
+                        ),
+                      if (_canWrite && _canDelete) const SizedBox(width: 8),
+                      if (_canDelete)
+                        CupertinoButton(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          color: CupertinoColors.systemRed.withValues(
+                            alpha: 0.1,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          onPressed: () => _confirmDelete(item),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                CupertinoIcons.trash,
+                                size: 14,
+                                color: CupertinoColors.systemRed,
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                'Delete',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: CupertinoColors.systemRed,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          minimumSize: Size(0, 0),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
 
             // Data rows
             ..._permittedColumns.map((col) {
