@@ -77,8 +77,16 @@ class _HomeScreenState extends State<HomeScreen> {
   // ─── EDIT ACTION ────────────────────────────────────────────────────────────
 
   void _showEditSheet(Map<String, String> item) {
+    // Date is a mandatory system column. If it's not present in permittedColumns,
+    // prepend it so the user can easily edit the date for this record.
+    final editColumns = List<String>.from(_permittedColumns);
+    final hasDate = editColumns.any((c) => c.toLowerCase() == 'date');
+    if (!hasDate) {
+      editColumns.insert(0, 'Date');
+    }
+
     final controllers = {
-      for (final col in _permittedColumns)
+      for (final col in editColumns)
         col: TextEditingController(
           text:
               item[item.keys.firstWhere(
@@ -139,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: EdgeInsets.zero,
                       onPressed: () {
                         final updates = {
-                          for (final col in _permittedColumns)
+                          for (final col in editColumns)
                             col: controllers[col]!.text.trim(),
                         };
                         Navigator.pop(ctx);
@@ -157,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.all(16),
-                  children: _permittedColumns.map((col) {
+                  children: editColumns.map((col) {
                     final isDate = col.toLowerCase() == 'date';
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -280,7 +288,41 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  DateTime _parseDateString(String dateStr) {
+    try {
+      if (dateStr.isEmpty) return DateTime.now();
+      
+      final cleaned = dateStr.trim();
+      
+      // Case 1: dd-MMM or dd-MMM-yyyy (e.g. 26-Jan or 26-Jan-2026)
+      final parts = cleaned.split('-');
+      if (parts.length >= 2) {
+        final day = int.tryParse(parts[0]);
+        if (day != null) {
+          final months = [
+            'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+            'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
+          ];
+          final monthIndex = months.indexOf(parts[1].toLowerCase());
+          if (monthIndex != -1) {
+            int year = DateTime.now().year;
+            if (parts.length >= 3) {
+              year = int.tryParse(parts[2]) ?? year;
+            }
+            return DateTime(year, monthIndex + 1, day);
+          }
+        }
+      }
+      
+      // Case 2: standard ISO parse
+      return DateTime.parse(cleaned);
+    } catch (_) {
+      return DateTime.now();
+    }
+  }
+
   void _showDatePicker(BuildContext context, TextEditingController controller) {
+    final parsedInitial = _parseDateString(controller.text);
     showCupertinoModalPopup(
       context: context,
       builder: (BuildContext ctx) => Container(
@@ -313,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: CupertinoDatePicker(
                   mode: CupertinoDatePickerMode.date,
-                  initialDateTime: DateTime.now(),
+                  initialDateTime: parsedInitial,
                   onDateTimeChanged: (DateTime newDate) {
                     final months = [
                       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
