@@ -405,13 +405,30 @@ class _HomeScreenState extends State<HomeScreen> {
     // 1. Instantly append locally and rebuild (1 ms response!)
     final originalList = List<Map<String, String>>.from(_dataList);
 
+    // Align keys and populate all columns from existing sheet structure to ensure
+    // that Edit, Delete, and Details actions work flawlessly on this new record immediately!
+    final alignedRecord = <String, String>{};
+    if (_dataList.isNotEmpty) {
+      for (final key in _dataList.first.keys) {
+        alignedRecord[key] = '';
+      }
+    }
+    
+    newRecord.forEach((key, val) {
+      final actualKey = alignedRecord.keys.firstWhere(
+        (k) => k.toLowerCase() == key.toLowerCase(),
+        orElse: () => key,
+      );
+      alignedRecord[actualKey] = val;
+    });
+
     setState(() {
-      _dataList.insert(0, newRecord);
+      _dataList.insert(0, alignedRecord);
     });
 
     // 2. Perform the API call in the background without blocking the UI
     try {
-      final error = await GoogleSheetsService.addRow(rowData: newRecord);
+      final error = await GoogleSheetsService.addRow(rowData: alignedRecord);
 
       if (error != null) {
         // Rollback
