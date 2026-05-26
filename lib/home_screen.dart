@@ -24,6 +24,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _permittedColumns = [];
   String _accessPermissions = '';
 
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   bool get _canRead => _accessPermissions.toLowerCase().contains('read');
   bool get _canWrite => _accessPermissions.toLowerCase().contains('write');
   bool get _canDelete => _accessPermissions.toLowerCase().contains('delete');
@@ -38,6 +41,12 @@ class _HomeScreenState extends State<HomeScreen> {
         .where((e) => e.isNotEmpty && e.toLowerCase() != 'dashboard')
         .toList();
     _fetchSheetData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchSheetData() async {
@@ -637,6 +646,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredList = _dataList.where((item) {
+      if (_searchQuery.isEmpty) return true;
+      return item.values.any(
+        (val) => val.toLowerCase().contains(_searchQuery.toLowerCase()),
+      );
+    }).toList();
+
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
         middle: Text('Dashboard', style: TextStyle(color: Colors.black)),
@@ -674,16 +690,68 @@ class _HomeScreenState extends State<HomeScreen> {
                       'No Data',
                       'No records were found in the sheet.',
                     )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.all(16),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) => _buildCard(_dataList[index]),
-                          childCount: _dataList.length,
+                  else ...[
+                    // Smooth, Premium Aesthetic Search Bar
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          top: 16,
+                          bottom: 4,
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: CupertinoColors.systemGrey.withValues(
+                                  alpha: 0.08,
+                                ),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: CupertinoSearchTextField(
+                            controller: _searchController,
+                            placeholder: 'Search records...',
+                            style: const TextStyle(fontSize: 15),
+                            placeholderStyle: const TextStyle(
+                              color: CupertinoColors.placeholderText,
+                              fontSize: 15,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            onChanged: (val) {
+                              setState(() {
+                                _searchQuery = val.trim();
+                              });
+                            },
+                          ),
                         ),
                       ),
                     ),
+
+                    if (filteredList.isEmpty)
+                      _buildEmptyState(
+                        CupertinoIcons.search,
+                        'No Results Found',
+                        'We couldn\'t find any records matching "$_searchQuery".',
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.all(16),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) => _buildCard(filteredList[index]),
+                            childCount: filteredList.length,
+                          ),
+                        ),
+                      ),
+                  ],
                 ],
               ),
       ),
