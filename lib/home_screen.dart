@@ -137,163 +137,116 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
     };
 
-    // State variables declared OUTSIDE builder so they persist across rebuilds
-    bool isSaving = false;
-    String? errorMsg;
-
     showCupertinoModalPopup(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.75,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF2F2F7),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                // Handle bar
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey3,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF2F2F7),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: CupertinoColors.systemGrey3,
+                  borderRadius: BorderRadius.circular(2),
                 ),
+              ),
 
-                // Header row
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(color: CupertinoColors.systemGrey),
-                        ),
-                      ),
-                      const Text(
-                        'Edit Record',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: isSaving
-                            ? null
-                            : () async {
-                                setModalState(() {
-                                  isSaving = true;
-                                  errorMsg = null;
-                                });
-                                final err = await _saveEdit(item, controllers);
-                                if (err == null) {
-                                  if (ctx.mounted) Navigator.pop(ctx);
-                                } else {
-                                  setModalState(() {
-                                    isSaving = false;
-                                    errorMsg = err;
-                                  });
-                                }
-                              },
-                        child: isSaving
-                            ? const CupertinoActivityIndicator()
-                            : const Text('Save'),
-                      ),
-                    ],
-                  ),
+              // Header row
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-
-                // Error message banner (shown when save fails)
-                if (errorMsg != null)
-                  Container(
-                    width: double.infinity,
-                    color: CupertinoColors.systemRed.withValues(alpha: 0.1),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: CupertinoColors.systemGrey),
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          CupertinoIcons.exclamationmark_circle,
-                          size: 16,
-                          color: CupertinoColors.systemRed,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
+                    const Text(
+                      'Edit Record',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        final updates = {
+                          for (final col in _permittedColumns)
+                            col: controllers[col]!.text.trim(),
+                        };
+                        Navigator.pop(ctx);
+                        _saveEditAndRefresh(item, updates);
+                      },
+                      child: const Text('Save'),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 0),
+
+              // Fields
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: _permittedColumns.map((col) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: CupertinoTextField(
+                        controller: controllers[col],
+                        prefix: Padding(
+                          padding: const EdgeInsets.only(left: 12),
                           child: Text(
-                            errorMsg!,
+                            '$col: ',
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: CupertinoColors.systemRed,
+                              color: CupertinoColors.systemGrey,
+                              fontSize: 14,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-
-                const Divider(height: 0),
-
-                // Fields
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: _permittedColumns.map((col) {
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: CupertinoColors.white,
-                          borderRadius: BorderRadius.circular(10),
+                        placeholder: 'Enter value',
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 14,
                         ),
-                        child: CupertinoTextField(
-                          controller: controllers[col],
-                          prefix: Padding(
-                            padding: const EdgeInsets.only(left: 12),
-                            child: Text(
-                              '$col: ',
-                              style: const TextStyle(
-                                color: CupertinoColors.systemGrey,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                          placeholder: 'Enter value',
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 14,
-                          ),
-                          decoration: null,
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                        decoration: null,
+                      ),
+                    );
+                  }).toList(),
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  // Returns null on success, or an error message string on failure
-  Future<String?> _saveEdit(
+  Future<void> _saveEditAndRefresh(
     Map<String, String> item,
-    Map<String, TextEditingController> controllers,
+    Map<String, String> updates,
   ) async {
+    setState(() => _isLoading = true);
     try {
       final ivNo =
           item['IV NO'] ??
@@ -304,12 +257,10 @@ class _HomeScreenState extends State<HomeScreen> {
           '';
 
       if (ivNo.isEmpty) {
-        return 'Could not find a row identifier (IV NO).\nCannot save changes.';
+        setState(() => _isLoading = false);
+        _showErrorDialog('Could not find a row identifier (IV NO).');
+        return;
       }
-
-      final updates = {
-        for (final col in _permittedColumns) col: controllers[col]!.text.trim(),
-      };
 
       final error = await GoogleSheetsService.editRow(
         ivNo: ivNo,
@@ -317,14 +268,15 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (error != null) {
-        return error;
+        setState(() => _isLoading = false);
+        _showErrorDialog(error);
+        return;
       }
 
-      // Success — refresh data
       await _fetchSheetData();
-      return null;
     } catch (e) {
-      return 'Failed to save changes: $e';
+      setState(() => _isLoading = false);
+      _showErrorDialog('Failed to save changes: $e');
     }
   }
 
