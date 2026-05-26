@@ -21,6 +21,7 @@ class RecordDetailsScreen extends StatefulWidget {
 
 class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   String _selectedExtension = '.pdf'; // Default selected extension
+  bool _isDropdownOpen = false; // Whether the custom format dropdown is expanded
 
   String get _title {
     final ivNoKey = widget.record.keys.firstWhere(
@@ -265,68 +266,42 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     );
   }
 
-  void _showExtensionPicker() {
-    showCupertinoModalPopup(
-      context: context,
-      builder: (BuildContext ctx) => CupertinoActionSheet(
-        title: const Text('Select Export Extension', style: TextStyle(fontWeight: FontWeight.bold)),
-        message: const Text('Choose your preferred file format for download'),
-        actions: [
-          CupertinoActionSheetAction(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(CupertinoIcons.doc_richtext, color: Color(0xFF667EEA)),
-                SizedBox(width: 8),
-                Text('PDF Document (.pdf)', style: TextStyle(color: CupertinoColors.black)),
+  Widget _buildDropdownItem(String ext, String title, IconData icon, Color color) {
+    final isSelected = _selectedExtension == ext;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedExtension = ext;
+          _isDropdownOpen = false;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        color: isSelected ? color.withValues(alpha: 0.08) : const Color(0x00000000),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 18),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: CupertinoColors.black,
+                  ),
+                ),
               ],
             ),
-            onPressed: () {
-              setState(() {
-                _selectedExtension = '.pdf';
-              });
-              Navigator.pop(ctx);
-            },
-          ),
-          CupertinoActionSheetAction(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(CupertinoIcons.doc_text, color: Color(0xFF4A5568)),
-                SizedBox(width: 8),
-                Text('Word Document (.docx)', style: TextStyle(color: CupertinoColors.black)),
-              ],
-            ),
-            onPressed: () {
-              setState(() {
-                _selectedExtension = '.docx';
-              });
-              Navigator.pop(ctx);
-            },
-          ),
-          CupertinoActionSheetAction(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(CupertinoIcons.table, color: CupertinoColors.activeGreen),
-                SizedBox(width: 8),
-                Text('Spreadsheet (.csv)', style: TextStyle(color: CupertinoColors.black)),
-              ],
-            ),
-            onPressed: () {
-              setState(() {
-                _selectedExtension = '.csv';
-              });
-              Navigator.pop(ctx);
-            },
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          isDefaultAction: true,
-          onPressed: () {
-            Navigator.pop(ctx);
-          },
-          child: const Text('Cancel'),
+            if (isSelected)
+              Icon(
+                CupertinoIcons.check_mark,
+                color: color,
+                size: 16,
+              ),
+          ],
         ),
       ),
     );
@@ -570,7 +545,11 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                 children: [
                   // Dropdown format selector row
                   GestureDetector(
-                    onTap: _showExtensionPicker,
+                    onTap: () {
+                      setState(() {
+                        _isDropdownOpen = !_isDropdownOpen;
+                      });
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
@@ -610,8 +589,10 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              const Icon(
-                                CupertinoIcons.chevron_down,
+                              Icon(
+                                _isDropdownOpen
+                                    ? CupertinoIcons.chevron_up
+                                    : CupertinoIcons.chevron_down,
                                 size: 14,
                                 color: CupertinoColors.systemGrey,
                               ),
@@ -621,6 +602,25 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                       ),
                     ),
                   ),
+                  if (_isDropdownOpen) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF2F2F7),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: CupertinoColors.systemGrey5, width: 1),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildDropdownItem('.pdf', 'PDF Document (.pdf)', CupertinoIcons.doc_richtext, const Color(0xFF667EEA)),
+                          Container(height: 0.5, color: CupertinoColors.systemGrey5),
+                          _buildDropdownItem('.docx', 'Word Document (.docx)', CupertinoIcons.doc_text, const Color(0xFF4A5568)),
+                          Container(height: 0.5, color: CupertinoColors.systemGrey5),
+                          _buildDropdownItem('.csv', 'Spreadsheet (.csv)', CupertinoIcons.table, CupertinoColors.activeGreen),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
 
                   // Prominent Export/Download Button
