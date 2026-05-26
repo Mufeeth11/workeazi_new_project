@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'services/google_sheets_service.dart';
+import 'record_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String loginId;
@@ -451,194 +452,207 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCard(Map<String, String> item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: CupertinoColors.systemGrey5, width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Row: Date (Left) & Actions (Right)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Date Display with calendar icon
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      CupertinoIcons.calendar,
-                      size: 16,
-                      color: CupertinoColors.systemGrey,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      item.entries
-                          .firstWhere(
-                            (entry) => entry.key.toLowerCase() == 'date',
-                            orElse: () => const MapEntry('Date', '-'),
-                          )
-                          .value,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: CupertinoColors.systemGrey,
-                      ),
-                    ),
-                  ],
-                ),
-                // Action buttons (Write + Delete) with icon and text
-                if (_canWrite || _canDelete)
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          CupertinoPageRoute(
+            builder: (context) => RecordDetailsScreen(
+              record: item,
+              permittedColumns: _permittedColumns,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: CupertinoColors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: CupertinoColors.systemGrey5, width: 1),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Row: Date (Left) & Actions (Right)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Date Display with calendar icon
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (_canWrite)
-                        CupertinoButton(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          color: CupertinoColors.systemBlue.withValues(
-                            alpha: 0.1,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                          onPressed: () => _showEditSheet(item),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                CupertinoIcons.pencil,
-                                size: 14,
-                                color: CupertinoColors.systemBlue,
-                              ),
-                              SizedBox(width: 5),
-                              Text(
-                                'Edit',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: CupertinoColors.systemBlue,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          minimumSize: Size(0, 0),
-                        ),
-                      if (_canWrite && _canDelete) const SizedBox(width: 8),
-                      if (_canDelete)
-                        CupertinoButton(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          color: CupertinoColors.systemRed.withValues(
-                            alpha: 0.1,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                          onPressed: () => _confirmDelete(item),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                CupertinoIcons.trash,
-                                size: 14,
-                                color: CupertinoColors.systemRed,
-                              ),
-                              SizedBox(width: 5),
-                              Text(
-                                'Delete',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: CupertinoColors.systemRed,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          minimumSize: Size(0, 0),
-                        ),
-                    ],
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Data rows
-            ..._permittedColumns.map((col) {
-              final actualHeader = item.keys.firstWhere(
-                (k) => k.toLowerCase() == col.toLowerCase(),
-                orElse: () => col,
-              );
-              final val = item[actualHeader] ?? '-';
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        col,
+                      const Icon(
+                        CupertinoIcons.calendar,
+                        size: 16,
+                        color: CupertinoColors.systemGrey,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        item.entries
+                            .firstWhere(
+                              (entry) => entry.key.toLowerCase() == 'date',
+                              orElse: () => const MapEntry('Date', '-'),
+                            )
+                            .value,
                         style: const TextStyle(
                           fontSize: 14,
-                          color: CupertinoColors.systemGrey,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        val.isEmpty ? '-' : val,
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                          fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: CupertinoColors.black,
-                          fontFamilyFallback: ['Roboto', 'NotoSans'],
+                          color: CupertinoColors.systemGrey,
                         ),
                       ),
+                    ],
+                  ),
+                  // Action buttons (Write + Delete) with icon and text
+                  if (_canWrite || _canDelete)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_canWrite)
+                          CupertinoButton(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            color: CupertinoColors.systemBlue.withValues(
+                              alpha: 0.1,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            onPressed: () => _showEditSheet(item),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.pencil,
+                                  size: 14,
+                                  color: CupertinoColors.systemBlue,
+                                ),
+                                SizedBox(width: 5),
+                                Text(
+                                  'Edit',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: CupertinoColors.systemBlue,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            minimumSize: Size(0, 0),
+                          ),
+                        if (_canWrite && _canDelete) const SizedBox(width: 8),
+                        if (_canDelete)
+                          CupertinoButton(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            color: CupertinoColors.systemRed.withValues(
+                              alpha: 0.1,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            onPressed: () => _confirmDelete(item),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.trash,
+                                  size: 14,
+                                  color: CupertinoColors.systemRed,
+                                ),
+                                SizedBox(width: 5),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: CupertinoColors.systemRed,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            minimumSize: Size(0, 0),
+                          ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-            }),
+                ],
+              ),
+              const SizedBox(height: 12),
 
-            // Divider + permission badges
-            const SizedBox(height: 8),
-            Container(height: 0.5, color: CupertinoColors.systemGrey5),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                if (_canRead)
-                  _buildPermissionBadge(
-                    icon: CupertinoIcons.eye_fill,
-                    label: 'Read',
-                    color: CupertinoColors.systemGreen,
+              // Data rows
+              ..._permittedColumns.map((col) {
+                final actualHeader = item.keys.firstWhere(
+                  (k) => k.toLowerCase() == col.toLowerCase(),
+                  orElse: () => col,
+                );
+                final val = item[actualHeader] ?? '-';
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          col,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: CupertinoColors.systemGrey,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          val.isEmpty ? '-' : val,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: CupertinoColors.black,
+                            fontFamilyFallback: ['Roboto', 'NotoSans'],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                if (_canWrite)
-                  _buildPermissionBadge(
-                    icon: CupertinoIcons.pencil,
-                    label: 'Write',
-                    color: CupertinoColors.systemBlue,
-                  ),
-                if (_canDelete)
-                  _buildPermissionBadge(
-                    icon: CupertinoIcons.trash_fill,
-                    label: 'Delete',
-                    color: CupertinoColors.systemRed,
-                  ),
-              ],
-            ),
-          ],
+                );
+              }),
+
+              // Divider + permission badges
+              const SizedBox(height: 8),
+              Container(height: 0.5, color: CupertinoColors.systemGrey5),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  if (_canRead)
+                    _buildPermissionBadge(
+                      icon: CupertinoIcons.eye_fill,
+                      label: 'Read',
+                      color: CupertinoColors.systemGreen,
+                    ),
+                  if (_canWrite)
+                    _buildPermissionBadge(
+                      icon: CupertinoIcons.pencil,
+                      label: 'Write',
+                      color: CupertinoColors.systemBlue,
+                    ),
+                  if (_canDelete)
+                    _buildPermissionBadge(
+                      icon: CupertinoIcons.trash_fill,
+                      label: 'Delete',
+                      color: CupertinoColors.systemRed,
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -651,7 +665,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final q = _searchQuery.toLowerCase();
 
       // 1. Direct value checking
-      final matchesAnyValue = item.values.any((val) => val.toLowerCase().contains(q));
+      final matchesAnyValue = item.values.any(
+        (val) => val.toLowerCase().contains(q),
+      );
       if (matchesAnyValue) return true;
 
       // 2. Ultra-flexible date search (normalize slashes / dots / dashes to match interchangeably)
@@ -662,7 +678,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (dateKey.isNotEmpty) {
         final dateVal = (item[dateKey] ?? '').toLowerCase();
         final normalizedQuery = q.replaceAll('/', '-').replaceAll('.', '-');
-        final normalizedDate = dateVal.replaceAll('/', '-').replaceAll('.', '-');
+        final normalizedDate = dateVal
+            .replaceAll('/', '-')
+            .replaceAll('.', '-');
         if (normalizedDate.contains(normalizedQuery)) {
           return true;
         }
