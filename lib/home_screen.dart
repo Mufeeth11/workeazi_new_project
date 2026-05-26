@@ -306,10 +306,20 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('Updated Time: Newest First'),
+                const Text(
+                  'Updated Time: Newest First',
+                  style: TextStyle(
+                    color: CupertinoColors.black,
+                    fontSize: 16,
+                  ),
+                ),
                 if (_isSortDescending) ...[
                   const SizedBox(width: 8),
-                  const Icon(CupertinoIcons.check_mark, size: 18),
+                  const Icon(
+                    CupertinoIcons.check_mark,
+                    size: 18,
+                    color: Color(0xFF667EEA),
+                  ),
                 ],
               ],
             ),
@@ -324,21 +334,37 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('Updated Time: Oldest First'),
+                const Text(
+                  'Updated Time: Oldest First',
+                  style: TextStyle(
+                    color: CupertinoColors.black,
+                    fontSize: 16,
+                  ),
+                ),
                 if (!_isSortDescending) ...[
                   const SizedBox(width: 8),
-                  const Icon(CupertinoIcons.check_mark, size: 18),
+                  const Icon(
+                    CupertinoIcons.check_mark,
+                    size: 18,
+                    color: Color(0xFF667EEA),
+                  ),
                 ],
               ],
             ),
           ),
         ],
         cancelButton: CupertinoActionSheetAction(
-          isDestructiveAction: true,
           onPressed: () {
             Navigator.pop(context);
           },
-          child: const Text('Cancel'),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(
+              color: CupertinoColors.systemRed,
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+            ),
+          ),
         ),
       ),
     );
