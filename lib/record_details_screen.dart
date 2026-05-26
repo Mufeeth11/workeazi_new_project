@@ -203,16 +203,22 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     }
   }
 
-  Future<void> _exportToDocx() async {
+  Future<void> _exportToDoc() async {
     try {
-      // Create a styled text document representing the details
+      // Generate a robust Rich Text Format (RTF) file.
+      // Microsoft Word natively opens RTF as a first-class document (.rtf) 
+      // without ANY corrupt document warning or errors, fully supporting rich formatting.
       final buffer = StringBuffer();
-      buffer.writeln('========================================');
-      buffer.writeln('          WORKEAZI RECORD EXPORT        ');
-      buffer.writeln('========================================');
-      buffer.writeln('Invoice No: $_title');
-      buffer.writeln('Date: $_date');
-      buffer.writeln('----------------------------------------');
+      
+      // RTF Document Header
+      buffer.write(r'{\rtf1\ansi\deff0 {\fonttbl {\f0\fnil\fcharset0 Arial;}}');
+      buffer.write(r'{\colortbl ;\red102\green126\blue234;\red74\green85\blue104;\red113\green128\blue150;}');
+      
+      // Document content
+      buffer.write(r'\fs36\b\cf1 WorkEazi Record Export\b0\fs24\cf0\par');
+      buffer.write(r'\cf3 Date: ' + _date + r'\cf0\par\par');
+      buffer.write(r'\cf2\fs28\b Invoice Details:\b0\cf0\fs24\par');
+      buffer.write(r'--------------------------------------------------\par\par');
       
       for (final col in widget.permittedColumns) {
         final actualKey = widget.record.keys.firstWhere(
@@ -220,20 +226,24 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
           orElse: () => col,
         );
         final val = widget.record[actualKey] ?? '-';
-        buffer.writeln('${col.padRight(20)}: ${_formatValueForDocxOrCsv(col, val)}');
+        final formattedVal = _formatValueForDocxOrCsv(col, val);
+        
+        buffer.write(r'\b ' + col + r':\b0  ' + formattedVal + r'\par\par');
       }
-      buffer.writeln('========================================');
-      buffer.writeln('Generated via WorkEazi User Portal.');
+      
+      buffer.write(r'--------------------------------------------------\par\par');
+      buffer.write(r'\fs18\i Generated via WorkEazi User Portal.\i0\par}');
 
       final output = await getTemporaryDirectory();
-      final file = File("${output.path}/record_$_title.docx");
+      // Using .doc extension (which is standard and Word reads RTF natively under .doc)
+      final file = File("${output.path}/record_$_title.doc");
       await file.writeAsString(buffer.toString());
 
-      final xFile = XFile(file.path, mimeType: 'text/plain');
-      await Share.shareXFiles([xFile], text: 'DOCX Export for $_title');
+      final xFile = XFile(file.path, mimeType: 'application/msword');
+      await Share.shareXFiles([xFile], text: 'Word Document Export for $_title');
     } catch (e) {
       if (mounted) {
-        _showError('DOCX Export failed: $e');
+        _showError('Word Document Export failed: $e');
       }
     }
   }
@@ -281,8 +291,8 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       case '.pdf':
         _exportToPdf();
         break;
-      case '.docx':
-        _exportToDocx();
+      case '.doc':
+        _exportToDoc();
         break;
       case '.csv':
         _exportToCsv();
@@ -351,7 +361,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     switch (_selectedExtension) {
       case '.pdf':
         return CupertinoIcons.doc_richtext;
-      case '.docx':
+      case '.doc':
         return CupertinoIcons.doc_text;
       case '.csv':
         return CupertinoIcons.table;
@@ -364,7 +374,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     switch (_selectedExtension) {
       case '.pdf':
         return const Color(0xFF667EEA);
-      case '.docx':
+      case '.doc':
         return const Color(0xFF4A5568);
       case '.csv':
         return CupertinoColors.activeGreen;
@@ -654,7 +664,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                         children: [
                           _buildDropdownItem('.pdf', 'PDF Document (.pdf)', CupertinoIcons.doc_richtext, const Color(0xFF667EEA)),
                           Container(height: 0.5, color: CupertinoColors.systemGrey5),
-                          _buildDropdownItem('.docx', 'Word Document (.docx)', CupertinoIcons.doc_text, const Color(0xFF4A5568)),
+                          _buildDropdownItem('.doc', 'Word Document (.doc)', CupertinoIcons.doc_text, const Color(0xFF4A5568)),
                           Container(height: 0.5, color: CupertinoColors.systemGrey5),
                           _buildDropdownItem('.csv', 'Spreadsheet (.csv)', CupertinoIcons.table, CupertinoColors.activeGreen),
                         ],
