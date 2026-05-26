@@ -40,7 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _fetchSheetData();
   }
 
-
   Future<void> _fetchSheetData() async {
     if (mounted && _dataList.isEmpty) {
       setState(() => _isLoading = true);
@@ -189,36 +188,70 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, String> item,
     Map<String, String> updates,
   ) async {
-    setState(() => _isLoading = true);
-    try {
-      final ivNo =
-          item['IV NO'] ??
-          item[item.keys.firstWhere(
-            (k) => k.toLowerCase() == 'iv no',
-            orElse: () => '',
-          )] ??
-          '';
+    // 1. Instantly update the local memory state and rebuild (1 ms response!)
+    final originalList = List<Map<String, String>>.from(_dataList);
+    
+    final ivNoKey = item.keys.firstWhere(
+      (k) => k.toLowerCase() == 'iv no',
+      orElse: () => 'IV NO',
+    );
+    final targetIvNo = item[ivNoKey] ?? '';
+    
+    int targetIndex = -1;
+    for (int i = 0; i < _dataList.length; i++) {
+      if ((_dataList[i][ivNoKey] ?? '').toLowerCase() == targetIvNo.toLowerCase()) {
+        targetIndex = i;
+        break;
+      }
+    }
 
-      if (ivNo.isEmpty) {
-        setState(() => _isLoading = false);
+    if (targetIndex != -1) {
+      setState(() {
+        final updatedRecord = Map<String, String>.from(_dataList[targetIndex]);
+        updates.forEach((key, val) {
+          final actualKey = updatedRecord.keys.firstWhere(
+            (k) => k.toLowerCase() == key.toLowerCase(),
+            orElse: () => key,
+          );
+          updatedRecord[actualKey] = val;
+        });
+        _dataList[targetIndex] = updatedRecord;
+      });
+    }
+
+    // 2. Perform the API call in the background without blocking the UI
+    try {
+      if (targetIvNo.isEmpty) {
         _showErrorDialog('Could not find a row identifier (IV NO).');
         return;
       }
 
       final error = await GoogleSheetsService.editRow(
-        ivNo: ivNo,
+        ivNo: targetIvNo,
         updates: updates,
       );
 
       if (error != null) {
-        setState(() => _isLoading = false);
+        // Rollback to original if API call failed
+        setState(() {
+          _dataList = originalList;
+        });
         _showErrorDialog(error);
         return;
       }
 
-      await _fetchSheetData();
+      // Quietly fetch fresh data from sheet to ensure full synchronization (without blocking loader)
+      final parsedData = await GoogleSheetsService.fetchSheetData();
+      if (parsedData != null) {
+        setState(() {
+          _dataList = parsedData;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoading = false);
+      // Rollback
+      setState(() {
+        _dataList = originalList;
+      });
       _showErrorDialog('Failed to save changes: $e');
     }
   }
@@ -253,35 +286,70 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _deleteRow(Map<String, String> item) async {
-    setState(() => _isLoading = true);
-    try {
-      final ivNo =
-          item['IV NO'] ??
-          item[item.keys.firstWhere(
-            (k) => k.toLowerCase() == 'iv no',
-            orElse: () => '',
-          )] ??
-          '';
+    // 1. Instantly update the local memory state to "nil" and rebuild (1 ms response!)
+    final originalList = List<Map<String, String>>.from(_dataList);
+    
+    final ivNoKey = item.keys.firstWhere(
+      (k) => k.toLowerCase() == 'iv no',
+      orElse: () => 'IV NO',
+    );
+    final targetIvNo = item[ivNoKey] ?? '';
+    
+    int targetIndex = -1;
+    for (int i = 0; i < _dataList.length; i++) {
+      if ((_dataList[i][ivNoKey] ?? '').toLowerCase() == targetIvNo.toLowerCase()) {
+        targetIndex = i;
+        break;
+      }
+    }
 
-      if (ivNo.isEmpty) {
-        setState(() => _isLoading = false);
+    if (targetIndex != -1) {
+      setState(() {
+        final updatedRecord = Map<String, String>.from(_dataList[targetIndex]);
+        for (final col in _permittedColumns) {
+          final actualKey = updatedRecord.keys.firstWhere(
+            (k) => k.toLowerCase() == col.toLowerCase(),
+            orElse: () => col,
+          );
+          updatedRecord[actualKey] = 'nil';
+        }
+        _dataList[targetIndex] = updatedRecord;
+      });
+    }
+
+    // 2. Perform the API call in the background without blocking the UI
+    try {
+      if (targetIvNo.isEmpty) {
         _showErrorDialog('Could not find a row identifier (IV NO).');
         return;
       }
 
       final error = await GoogleSheetsService.clearRowToNil(
-        ivNo: ivNo,
+        ivNo: targetIvNo,
         permittedColumns: _permittedColumns,
       );
+
       if (error != null) {
-        setState(() => _isLoading = false);
+        // Rollback
+        setState(() {
+          _dataList = originalList;
+        });
         _showErrorDialog(error);
         return;
       }
 
-      await _fetchSheetData();
+      // Quietly fetch fresh data from sheet to ensure full synchronization (without blocking loader)
+      final parsedData = await GoogleSheetsService.fetchSheetData();
+      if (parsedData != null) {
+        setState(() {
+          _dataList = parsedData;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoading = false);
+      // Rollback
+      setState(() {
+        _dataList = originalList;
+      });
       _showErrorDialog('Failed to delete: $e');
     }
   }
