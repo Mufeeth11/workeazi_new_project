@@ -267,6 +267,202 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ─── ADD ACTION ──────────────────────────────────────────────────────────────
+
+  void _showAddSheet() {
+    // Generate a default unique IV NO
+    String defaultIvNo = '';
+    int maxNum = 0;
+    final ivNoKey = _dataList.isNotEmpty
+        ? _dataList.first.keys.firstWhere(
+            (k) => k.toLowerCase() == 'iv no',
+            orElse: () => 'IV NO',
+          )
+        : 'IV NO';
+
+    for (final item in _dataList) {
+      final val = item[ivNoKey] ?? '';
+      final numOnly = val.replaceAll(RegExp(r'\D'), '');
+      if (numOnly.isNotEmpty) {
+        final parsed = int.tryParse(numOnly);
+        if (parsed != null && parsed > maxNum) {
+          maxNum = parsed;
+        }
+      }
+    }
+
+    defaultIvNo = 'CSC ${(maxNum + 1).toString().padLeft(3, '0')}';
+
+    // Format current date
+    final now = DateTime.now();
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    final defaultDate =
+        '${now.day.toString().padLeft(2, '0')}-${months[now.month - 1]}';
+
+    final controllers = {
+      for (final col in _permittedColumns)
+        col: TextEditingController(
+          text: col.toLowerCase() == 'iv no'
+              ? defaultIvNo
+              : (col.toLowerCase() == 'date' ? defaultDate : ''),
+        ),
+    };
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF2F2F7),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: CupertinoColors.systemGrey3,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Header row
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: CupertinoColors.systemGrey),
+                      ),
+                    ),
+                    const Text(
+                      'Add New Record',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        final newRecord = {
+                          for (final col in _permittedColumns)
+                            col: controllers[col]!.text.trim(),
+                        };
+                        Navigator.pop(ctx);
+                        _saveAddAndRefresh(newRecord);
+                      },
+                      child: const Text('Add'),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(height: 0),
+
+              // Fields
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: _permittedColumns.map((col) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: CupertinoTextField(
+                        controller: controllers[col],
+                        prefix: Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: Text(
+                            '$col: ',
+                            style: const TextStyle(
+                              color: CupertinoColors.systemGrey,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        placeholder: 'Enter $col',
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 14,
+                        ),
+                        decoration: null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _saveAddAndRefresh(Map<String, String> newRecord) async {
+    // 1. Instantly append locally and rebuild (1 ms response!)
+    final originalList = List<Map<String, String>>.from(_dataList);
+
+    setState(() {
+      _dataList.insert(0, newRecord);
+    });
+
+    // 2. Perform the API call in the background without blocking the UI
+    try {
+      final error = await GoogleSheetsService.addRow(rowData: newRecord);
+
+      if (error != null) {
+        // Rollback
+        setState(() {
+          _dataList = originalList;
+        });
+        _showErrorDialog(error);
+        return;
+      }
+
+      // Quietly fetch fresh data from sheet to ensure full synchronization (without blocking loader)
+      final parsedData = await GoogleSheetsService.fetchSheetData();
+      if (parsedData != null) {
+        setState(() {
+          _dataList = parsedData;
+        });
+      }
+    } catch (e) {
+      // Rollback
+      setState(() {
+        _dataList = originalList;
+      });
+      _showErrorDialog('Failed to create record: $e');
+    }
+  }
+
   // ─── DELETE ACTION ───────────────────────────────────────────────────────────
 
   void _confirmDelete(Map<String, String> item) {
@@ -819,6 +1015,62 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
+
+                    // Smooth, Premium Aesthetic Add New Record Button
+                    if (_canWrite)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            left: 16,
+                            right: 16,
+                            top: 12,
+                            bottom: 4,
+                          ),
+                          child: GestureDetector(
+                            onTap: _showAddSheet,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF667EEA).withValues(alpha: 0.25),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(
+                                    CupertinoIcons.add_circled_solid,
+                                    color: CupertinoColors.white,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Add New Record',
+                                    style: TextStyle(
+                                      color: CupertinoColors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
 
                     if (filteredList.isEmpty)
                       _buildEmptyState(

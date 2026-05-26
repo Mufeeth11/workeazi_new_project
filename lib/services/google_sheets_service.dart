@@ -166,6 +166,62 @@ class GoogleSheetsService {
     }
   }
 
+  // Returns null on success, error message on failure
+  static Future<String?> addRow({
+    required Map<String, String> rowData,
+  }) async {
+    try {
+      final sheetsApi = await _getSheetsApi();
+      
+      // 1. Fetch the header row to know which column corresponds to which key
+      final response = await sheetsApi.spreadsheets.values.get(spreadsheetId, 'Sheet1!A:Z');
+      final rows = response.values;
+      if (rows == null || rows.isEmpty) {
+        return 'The sheet is empty or could not be loaded.';
+      }
+
+      int headerRowIndex = -1;
+      for (int i = 0; i < rows.length; i++) {
+        if (rows[i].isNotEmpty && rows[i][0].toString().toLowerCase() == 'date') {
+          headerRowIndex = i;
+          break;
+        }
+      }
+
+      if (headerRowIndex == -1) {
+        return 'Header row not found (cell A must be "Date").';
+      }
+
+      final headers = rows[headerRowIndex].map((h) => h.toString().toLowerCase().trim()).toList();
+      
+      // 2. Build the array of values aligned with headers
+      final rowValues = List<String>.filled(headers.length, '');
+      
+      rowData.forEach((key, val) {
+        final colIndex = headers.indexOf(key.toLowerCase().trim());
+        if (colIndex != -1) {
+          rowValues[colIndex] = val;
+        }
+      });
+
+      // 3. Append the new row to the Sheet1 range
+      final valueRange = sheets.ValueRange(
+        values: [rowValues],
+      );
+
+      await sheetsApi.spreadsheets.values.append(
+        valueRange,
+        spreadsheetId,
+        'Sheet1!A:Z',
+        valueInputOption: 'USER_ENTERED',
+      );
+      
+      return null;
+    } catch (e) {
+      return 'Google Sheets API error: $e';
+    }
+  }
+
   static Future<List<Map<String, String>>?> fetchSheetData() async {
     try {
       final sheetsApi = await _getSheetsApi();
