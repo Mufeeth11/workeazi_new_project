@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'services/google_sheets_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -42,24 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _fetchSheetData();
   }
 
-  List<String> _parseCsvLine(String line) {
-    List<String> result = [];
-    StringBuffer current = StringBuffer();
-    bool inQuotes = false;
-    for (int i = 0; i < line.length; i++) {
-      var char = line[i];
-      if (char == '"') {
-        inQuotes = !inQuotes;
-      } else if (char == ',' && !inQuotes) {
-        result.add(current.toString());
-        current.clear();
-      } else {
-        current.write(char);
-      }
-    }
-    result.add(current.toString());
-    return result;
-  }
 
   Future<void> _fetchSheetData() async {
     if (mounted && _dataList.isEmpty) {
@@ -67,44 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-
-      // 1. Re-fetch user permissions
-      final userUrl = Uri.parse(
-        'https://docs.google.com/spreadsheets/d/1lkImcQTYrsKBc4eafO6AOyRqlqhXTXnn40gYb4B5jzM/export?format=csv&gid=751895921&t=$timestamp',
-      );
-      final userResponse = await http.get(
-        userUrl,
-        headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
-      );
-
-      if (userResponse.statusCode == 200) {
-        for (final line in utf8.decode(userResponse.bodyBytes).split('\n')) {
-          final cols = _parseCsvLine(line);
-          if (cols.length >= 2) {
-            final empId = cols[0].trim();
-            final email = cols[1].trim();
-            if (empId == widget.loginId || email == widget.loginId) {
-              if (cols.length > 5) {
-                _permittedColumns = cols[5]
-                    .trim()
-                    .split(',')
-                    .map((e) => e.trim())
-                    .where(
-                      (e) => e.isNotEmpty && e.toLowerCase() != 'dashboard',
-                    )
-                    .toList();
-              }
-              if (cols.length > 6) {
-                _accessPermissions = cols[6].trim();
-              }
-              break;
-            }
-          }
-        }
-      }
-
-      // 2. Fetch Sheet1 data directly from Google Sheets API to bypass caching
+      // Fetch Sheet1 data directly from Google Sheets API to bypass caching
       final parsedData = await GoogleSheetsService.fetchSheetData();
 
       if (parsedData != null) {
