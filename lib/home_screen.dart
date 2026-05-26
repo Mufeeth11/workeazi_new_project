@@ -270,29 +270,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // ─── ADD ACTION ──────────────────────────────────────────────────────────────
 
   void _showAddSheet() {
-    // Generate a default unique IV NO
-    String defaultIvNo = '';
-    int maxNum = 0;
-    final ivNoKey = _dataList.isNotEmpty
-        ? _dataList.first.keys.firstWhere(
-            (k) => k.toLowerCase() == 'iv no',
-            orElse: () => 'IV NO',
-          )
-        : 'IV NO';
-
-    for (final item in _dataList) {
-      final val = item[ivNoKey] ?? '';
-      final numOnly = val.replaceAll(RegExp(r'\D'), '');
-      if (numOnly.isNotEmpty) {
-        final parsed = int.tryParse(numOnly);
-        if (parsed != null && parsed > maxNum) {
-          maxNum = parsed;
-        }
-      }
-    }
-
-    defaultIvNo = 'CSC ${(maxNum + 1).toString().padLeft(3, '0')}';
-
     // Format current date
     final now = DateTime.now();
     final months = [
@@ -315,9 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final controllers = {
       for (final col in _permittedColumns)
         col: TextEditingController(
-          text: col.toLowerCase() == 'iv no'
-              ? defaultIvNo
-              : (col.toLowerCase() == 'date' ? defaultDate : ''),
+          text: col.toLowerCase() == 'date' ? defaultDate : '',
         ),
     };
 
