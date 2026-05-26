@@ -25,6 +25,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
 
   String _formatValueForDocxOrCsv(String col, String val) {
     if (val.isEmpty || val == '-') return val;
+    String cleanVal = val.replaceAll('\u20B9', '₹').replaceAll('₹', '₹');
     final lowerCol = col.toLowerCase();
     final isMonetary = lowerCol.contains('value') ||
                        lowerCol.contains('amount') ||
@@ -34,15 +35,17 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                        lowerCol.contains('paid');
                        
     if (isMonetary) {
-      if (!val.contains('\u20B9') && !val.contains('Rs') && !val.contains('\$')) {
-        return '\u20B9$val';
+      if (!cleanVal.contains('₹') && !cleanVal.contains('Rs') && !cleanVal.contains('\$')) {
+        return '₹$cleanVal';
       }
     }
-    return val;
+    return cleanVal;
   }
 
   String _formatValueForPdf(String col, String val) {
     if (val.isEmpty || val == '-') return val;
+    // Replace any raw rupee character variants with 'Rs. ' to avoid Helvetica missing-glyph boxes
+    String cleanVal = val.replaceAll('₹', 'Rs. ').replaceAll('\u20B9', 'Rs. ');
     final lowerCol = col.toLowerCase();
     final isMonetary = lowerCol.contains('value') ||
                        lowerCol.contains('amount') ||
@@ -52,11 +55,11 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                        lowerCol.contains('paid');
                        
     if (isMonetary) {
-      if (!val.contains('\u20B9') && !val.contains('Rs') && !val.contains('\$')) {
-        return 'Rs. $val';
+      if (!cleanVal.contains('Rs') && !cleanVal.contains('\$')) {
+        return 'Rs. $cleanVal';
       }
     }
-    return val;
+    return cleanVal;
   }
 
   String get _title {
