@@ -648,9 +648,26 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final filteredList = _dataList.where((item) {
       if (_searchQuery.isEmpty) return true;
-      return item.values.any(
-        (val) => val.toLowerCase().contains(_searchQuery.toLowerCase()),
+      final q = _searchQuery.toLowerCase();
+
+      // 1. Direct value checking
+      final matchesAnyValue = item.values.any((val) => val.toLowerCase().contains(q));
+      if (matchesAnyValue) return true;
+
+      // 2. Ultra-flexible date search (normalize slashes / dots / dashes to match interchangeably)
+      final dateKey = item.keys.firstWhere(
+        (k) => k.toLowerCase() == 'date',
+        orElse: () => '',
       );
+      if (dateKey.isNotEmpty) {
+        final dateVal = (item[dateKey] ?? '').toLowerCase();
+        final normalizedQuery = q.replaceAll('/', '-').replaceAll('.', '-');
+        final normalizedDate = dateVal.replaceAll('/', '-').replaceAll('.', '-');
+        if (normalizedDate.contains(normalizedQuery)) {
+          return true;
+        }
+      }
+      return false;
     }).toList();
 
     return CupertinoPageScaffold(
