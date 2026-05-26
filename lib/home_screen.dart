@@ -1051,88 +1051,83 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Access Restricted',
                       'You do not have read access to view this data.\nPlease contact your administrator.',
                     )
-                  else if (_dataList.isEmpty)
-                    _buildEmptyState(
-                      CupertinoIcons.tray,
-                      'No Data',
-                      'No records were found in the sheet.',
-                    )
                   else ...[
                     // Smooth, Premium Aesthetic Search Bar
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          left: 16,
-                          right: 16,
-                          top: 16,
-                          bottom: 4,
-                        ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: CupertinoColors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: CupertinoColors.systemGrey.withValues(
-                                  alpha: 0.08,
-                                ),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
+                    if (_dataList.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            left: 16,
+                            right: 16,
+                            top: 16,
+                            bottom: 4,
                           ),
-                          child: CupertinoTextField(
-                            controller: _searchController,
-                            placeholder: 'Search records...',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: CupertinoColors.black,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: CupertinoColors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: CupertinoColors.systemGrey.withValues(
+                                    alpha: 0.08,
+                                  ),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                            placeholderStyle: const TextStyle(
-                              color: CupertinoColors.systemGrey,
-                              fontSize: 15,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
-                            decoration: null,
-                            prefix: const Padding(
-                              padding: EdgeInsets.only(left: 14),
-                              child: Icon(
-                                CupertinoIcons.search,
-                                size: 20,
-                                color: Color(0xFF667EEA),
+                            child: CupertinoTextField(
+                              controller: _searchController,
+                              placeholder: 'Search records...',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: CupertinoColors.black,
                               ),
-                            ),
-                            suffix: _searchQuery.isNotEmpty
-                                ? CupertinoButton(
-                                    padding: EdgeInsets.zero,
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() {
-                                        _searchQuery = '';
-                                      });
-                                    },
-                                    child: const Padding(
-                                      padding: EdgeInsets.only(right: 14),
-                                      child: Icon(
-                                        CupertinoIcons.clear,
-                                        size: 18,
-                                        color: CupertinoColors.systemGrey3,
+                              placeholderStyle: const TextStyle(
+                                color: CupertinoColors.systemGrey,
+                                fontSize: 15,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 14,
+                              ),
+                              decoration: null,
+                              prefix: const Padding(
+                                padding: EdgeInsets.only(left: 14),
+                                child: Icon(
+                                  CupertinoIcons.search,
+                                  size: 20,
+                                  color: Color(0xFF667EEA),
+                                ),
+                              ),
+                              suffix: _searchQuery.isNotEmpty
+                                  ? CupertinoButton(
+                                      padding: EdgeInsets.zero,
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() {
+                                          _searchQuery = '';
+                                        });
+                                      },
+                                      child: const Padding(
+                                        padding: EdgeInsets.only(right: 14),
+                                        child: Icon(
+                                          CupertinoIcons.clear,
+                                          size: 18,
+                                          color: CupertinoColors.systemGrey3,
+                                        ),
                                       ),
-                                    ),
-                                  )
-                                : null,
-                            onChanged: (val) {
-                              setState(() {
-                                _searchQuery = val.trim();
-                              });
-                            },
+                                    )
+                                  : null,
+                              onChanged: (val) {
+                                setState(() {
+                                  _searchQuery = val.trim();
+                                });
+                              },
+                            ),
                           ),
                         ),
                       ),
-                    ),
 
                     // Smooth, Premium Aesthetic Add New Record Button
                     if (_canWrite)
@@ -1190,7 +1185,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
 
-                    if (filteredList.isEmpty)
+                    if (_dataList.isEmpty)
+                      _buildEmptyState(
+                        CupertinoIcons.tray,
+                        'No Data',
+                        'No records were found in the sheet.',
+                      )
+                    else if (filteredList.isEmpty)
                       _buildEmptyState(
                         CupertinoIcons.search,
                         'No Results Found',
