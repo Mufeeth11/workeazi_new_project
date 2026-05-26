@@ -1,0 +1,727 @@
+import 'dart:convert';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+// ⚠️ Replace with your deployed Google Apps Script Web App URL
+const String _appsScriptUrl = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
+
+class HomeScreen extends StatefulWidget {
+  final String loginId;
+  final String permissions;
+  final String accessPermissions;
+
+  const HomeScreen({
+    super.key,
+    required this.loginId,
+    required this.permissions,
+    required this.accessPermissions,
+  });
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _isLoading = true;
+  List<Map<String, String>> _dataList = [];
+  List<String> _permittedColumns = [];
+  String _accessPermissions = '';
+
+  bool get _canRead => _accessPermissions.toLowerCase().contains('read');
+  bool get _canWrite => _accessPermissions.toLowerCase().contains('write');
+  bool get _canDelete => _accessPermissions.toLowerCase().contains('delete');
+
+  @override
+  void initState() {
+    super.initState();
+    _accessPermissions = widget.accessPermissions;
+    _permittedColumns = widget.permissions
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty && e.toLowerCase() != 'dashboard')
+        .toList();
+    _fetchSheetData();
+  }
+
+  List<String> _parseCsvLine(String line) {
+    List<String> result = [];
+    StringBuffer current = StringBuffer();
+    bool inQuotes = false;
+    for (int i = 0; i < line.length; i++) {
+      var char = line[i];
+      if (char == '"') {
+        inQuotes = !inQuotes;
+      } else if (char == ',' && !inQuotes) {
+        result.add(current.toString());
+        current.clear();
+      } else {
+        current.write(char);
+      }
+    }
+    result.add(current.toString());
+    return result;
+  }
+
+  Future<void> _fetchSheetData() async {
+    if (mounted && _dataList.isEmpty) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+      // 1. Re-fetch user permissions
+      final userUrl = Uri.parse(
+        'https://docs.google.com/spreadsheets/d/1lkImcQTYrsKBc4eafO6AOyRqlqhXTXnn40gYb4B5jzM/export?format=csv&gid=751895921&t=$timestamp',
+      );
+      final userResponse = await http.get(
+        userUrl,
+        headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+      );
+
+      if (userResponse.statusCode == 200) {
+        for (final line in utf8.decode(userResponse.bodyBytes).split('\n')) {
+          final cols = _parseCsvLine(line);
+          if (cols.length >= 2) {
+            final empId = cols[0].trim();
+            final email = cols[1].trim();
+            if (empId == widget.loginId || email == widget.loginId) {
+              if (cols.length > 5) {
+                _permittedColumns = cols[5]
+                    .trim()
+                    .split(',')
+                    .map((e) => e.trim())
+                    .where(
+                      (e) => e.isNotEmpty && e.toLowerCase() != 'dashboard',
+                    )
+                    .toList();
+              }
+              if (cols.length > 6) {
+                _accessPermissions = cols[6].trim();
+              }
+              break;
+            }
+          }
+        }
+      }
+
+      // 2. Fetch Sheet1 data
+      final url = Uri.parse(
+        'https://docs.google.com/spreadsheets/d/1lkImcQTYrsKBc4eafO6AOyRqlqhXTXnn40gYb4B5jzM/export?format=csv&gid=0&t=$timestamp',
+      );
+      final response = await http.get(
+        url,
+        headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
+      );
+
+      if (response.statusCode == 200) {
+        final lines = utf8.decode(response.bodyBytes).split('\n');
+        List<String> headers = [];
+        List<Map<String, String>> parsedData = [];
+        bool headersFound = false;
+
+        for (final rawLine in lines) {
+          final line = rawLine.trim();
+          if (line.isEmpty) continue;
+          final cols = _parseCsvLine(line);
+
+          if (!headersFound) {
+            if (cols.isNotEmpty && cols[0].trim().toLowerCase() == 'date') {
+              headers = cols.map((e) => e.trim()).toList();
+              headersFound = true;
+            }
+            continue;
+          }
+
+          if (cols.isNotEmpty && cols[0].trim().isNotEmpty) {
+            final rowData = <String, String>{};
+            for (int j = 0; j < cols.length && j < headers.length; j++) {
+              rowData[headers[j]] = cols[j].trim();
+            }
+            parsedData.add(rowData);
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _dataList = parsedData;
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ─── EDIT ACTION ────────────────────────────────────────────────────────────
+
+  void _showEditSheet(Map<String, String> item) {
+    final controllers = {
+      for (final col in _permittedColumns)
+        col: TextEditingController(
+          text: item[item.keys.firstWhere(
+                (k) => k.toLowerCase() == col.toLowerCase(),
+                orElse: () => col,
+              )] ??
+              '',
+        ),
+    };
+
+    // State variables declared OUTSIDE builder so they persist across rebuilds
+    bool isSaving = false;
+    String? errorMsg;
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF2F2F7),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemGrey3,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Header row
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text(
+                          'Cancel',
+                          style:
+                              TextStyle(color: CupertinoColors.systemGrey),
+                        ),
+                      ),
+                      const Text(
+                        'Edit Record',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                setModalState(() {
+                                  isSaving = true;
+                                  errorMsg = null;
+                                });
+                                final err =
+                                    await _saveEdit(item, controllers);
+                                if (err == null) {
+                                  if (ctx.mounted) Navigator.pop(ctx);
+                                } else {
+                                  setModalState(() {
+                                    isSaving = false;
+                                    errorMsg = err;
+                                  });
+                                }
+                              },
+                        child: isSaving
+                            ? const CupertinoActivityIndicator()
+                            : const Text('Save'),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Error message banner (shown when save fails)
+                if (errorMsg != null)
+                  Container(
+                    width: double.infinity,
+                    color: CupertinoColors.systemRed.withOpacity(0.1),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    child: Row(
+                      children: [
+                        const Icon(CupertinoIcons.exclamationmark_circle,
+                            size: 16, color: CupertinoColors.systemRed),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            errorMsg!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: CupertinoColors.systemRed,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const Divider(height: 0),
+
+                // Fields
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: _permittedColumns.map((col) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.white,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: CupertinoTextField(
+                          controller: controllers[col],
+                          prefix: Padding(
+                            padding: const EdgeInsets.only(left: 12),
+                            child: Text(
+                              '$col: ',
+                              style: const TextStyle(
+                                color: CupertinoColors.systemGrey,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          placeholder: 'Enter value',
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 14,
+                          ),
+                          decoration: null,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Returns null on success, or an error message string on failure
+  Future<String?> _saveEdit(
+    Map<String, String> item,
+    Map<String, TextEditingController> controllers,
+  ) async {
+    // Guard: Apps Script URL not configured
+    if (_appsScriptUrl == 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
+      return 'Apps Script URL is not configured.\nPlease contact the administrator.';
+    }
+
+    try {
+      final ivNo =
+          item['IV NO'] ??
+          item[item.keys.firstWhere(
+            (k) => k.toLowerCase() == 'iv no',
+            orElse: () => '',
+          )] ??
+          '';
+
+      if (ivNo.isEmpty) {
+        return 'Could not find a row identifier (IV NO).\nCannot save changes.';
+      }
+
+      final updates = {
+        for (final col in _permittedColumns) col: controllers[col]!.text.trim(),
+      };
+
+      final response = await http.post(
+        Uri.parse(_appsScriptUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'action': 'edit', 'ivNo': ivNo, 'updates': updates}),
+      );
+
+      // Check HTTP status
+      if (response.statusCode != 200) {
+        return 'Server error (HTTP ${response.statusCode}).\nPlease try again.';
+      }
+
+      // Parse Apps Script JSON response
+      try {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        if (json['status'] == 'error') {
+          return json['message']?.toString() ?? 'Unknown error from server.';
+        }
+      } catch (_) {
+        // Response wasn't JSON — still treat as success if status 200
+      }
+
+      // Success — refresh data
+      await _fetchSheetData();
+      return null;
+    } catch (e) {
+      return 'Failed to connect to the server.\nCheck your internet connection.';
+    }
+  }
+
+  // ─── DELETE ACTION ───────────────────────────────────────────────────────────
+
+  void _confirmDelete(Map<String, String> item) {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Delete Record'),
+        content: const Text(
+          'Are you sure you want to delete this record? This cannot be undone.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _deleteRow(item);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteRow(Map<String, String> item) async {
+    setState(() => _isLoading = true);
+    try {
+      final ivNo =
+          item['IV NO'] ??
+          item[item.keys.firstWhere(
+            (k) => k.toLowerCase() == 'iv no',
+            orElse: () => '',
+          )] ??
+          '';
+
+      await http.post(
+        Uri.parse(_appsScriptUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'action': 'delete', 'ivNo': ivNo}),
+      );
+
+      await _fetchSheetData();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        showCupertinoDialog(
+          context: context,
+          builder: (ctx) => CupertinoAlertDialog(
+            title: const Text('Error'),
+            content: Text('Failed to delete: $e'),
+            actions: [
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  // ─── UI HELPERS ──────────────────────────────────────────────────────────────
+
+  Widget _buildEmptyState(IconData icon, String title, String subtitle) {
+    return SliverFillRemaining(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 52, color: CupertinoColors.systemGrey3),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: CupertinoColors.systemGrey,
+                  height: 1.6,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPermissionBadge({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.4), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCard(Map<String, String> item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: CupertinoColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CupertinoColors.systemGrey5, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Action buttons (Write + Delete) with icon and text
+            if (_canWrite || _canDelete) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (_canWrite)
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      minSize: 0,
+                      color: CupertinoColors.systemBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      onPressed: () => _showEditSheet(item),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            CupertinoIcons.pencil,
+                            size: 14,
+                            color: CupertinoColors.systemBlue,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'Edit',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: CupertinoColors.systemBlue,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (_canWrite && _canDelete) const SizedBox(width: 8),
+                  if (_canDelete)
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      minSize: 0,
+                      color: CupertinoColors.systemRed.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      onPressed: () => _confirmDelete(item),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            CupertinoIcons.trash,
+                            size: 14,
+                            color: CupertinoColors.systemRed,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'Delete',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: CupertinoColors.systemRed,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // Data rows
+            ..._permittedColumns.map((col) {
+              final actualHeader = item.keys.firstWhere(
+                (k) => k.toLowerCase() == col.toLowerCase(),
+                orElse: () => col,
+              );
+              final val = item[actualHeader] ?? '-';
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        col,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: CupertinoColors.systemGrey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        val.isEmpty ? '-' : val,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: CupertinoColors.black,
+                          fontFamilyFallback: ['Roboto', 'NotoSans'],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // Divider + permission badges
+            const SizedBox(height: 8),
+            Container(height: 0.5, color: CupertinoColors.systemGrey5),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (_canRead)
+                  _buildPermissionBadge(
+                    icon: CupertinoIcons.eye_fill,
+                    label: 'Read',
+                    color: CupertinoColors.systemGreen,
+                  ),
+                if (_canWrite)
+                  _buildPermissionBadge(
+                    icon: CupertinoIcons.pencil,
+                    label: 'Write',
+                    color: CupertinoColors.systemBlue,
+                  ),
+                if (_canDelete)
+                  _buildPermissionBadge(
+                    icon: CupertinoIcons.trash_fill,
+                    label: 'Delete',
+                    color: CupertinoColors.systemRed,
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Dashboard', style: TextStyle(color: Colors.black)),
+        backgroundColor: Color(0xFFF2F2F7),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFD8D8D8), width: 0.5),
+        ),
+      ),
+      backgroundColor: const Color(0xFFF2F2F7),
+      child: SafeArea(
+        child: _isLoading
+            ? const Center(child: CupertinoActivityIndicator(radius: 14))
+            : CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  CupertinoSliverRefreshControl(onRefresh: _fetchSheetData),
+
+                  if (_permittedColumns.isEmpty)
+                    _buildEmptyState(
+                      CupertinoIcons.person_badge_minus,
+                      'No Permissions',
+                      'You have no column permissions assigned.\nPlease contact your administrator.',
+                    )
+                  else if (!_canRead)
+                    _buildEmptyState(
+                      CupertinoIcons.lock_fill,
+                      'Access Restricted',
+                      'You do not have read access to view this data.\nPlease contact your administrator.',
+                    )
+                  else if (_dataList.isEmpty)
+                    _buildEmptyState(
+                      CupertinoIcons.tray,
+                      'No Data',
+                      'No records were found in the sheet.',
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.all(16),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildCard(_dataList[index]),
+                          childCount: _dataList.length,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+}
