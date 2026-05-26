@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
@@ -21,8 +21,7 @@ class RecordDetailsScreen extends StatefulWidget {
 
 class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   String _selectedExtension = '.pdf'; // Default selected extension
-  bool _isDropdownOpen =
-      false; // Whether the custom format dropdown is expanded
+  bool _isDropdownOpen = false; // Whether the custom format dropdown is expanded
 
   String _formatValueForDocxOrCsv(String col, String val) {
     if (val.isEmpty || val == '-') return val;
@@ -48,7 +47,6 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
 
   String _formatValueForPdf(String col, String val) {
     if (val.isEmpty || val == '-') return val;
-    // Replace any raw rupee character variants with 'Rs. ' to avoid Helvetica missing-glyph boxes
     String cleanVal = val.replaceAll('₹', 'Rs. ').replaceAll('\u20B9', 'Rs. ');
     final lowerCol = col.toLowerCase();
     final isMonetary =
@@ -141,7 +139,6 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                       1: const pw.FlexColumnWidth(5),
                     },
                     children: [
-                      // Header Row
                       pw.TableRow(
                         decoration: pw.BoxDecoration(
                           color: PdfColor.fromHex('#F7FAFC'),
@@ -167,7 +164,6 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                           ),
                         ],
                       ),
-                      // Data Rows
                       ...widget.permittedColumns.map((col) {
                         final actualKey = widget.record.keys.firstWhere(
                           (k) => k.toLowerCase() == col.toLowerCase(),
@@ -222,18 +218,13 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
 
   Future<void> _exportToDoc() async {
     try {
-      // Generate a robust Rich Text Format (RTF) file.
-      // Microsoft Word natively opens RTF as a first-class document (.rtf)
-      // without ANY corrupt document warning or errors, fully supporting rich formatting.
       final buffer = StringBuffer();
 
-      // RTF Document Header
       buffer.write(r'{\rtf1\ansi\deff0 {\fonttbl {\f0\fnil\fcharset0 Arial;}}');
       buffer.write(
         r'{\colortbl ;\red102\green126\blue234;\red74\green85\blue104;\red113\green128\blue150;}',
       );
 
-      // Document content
       buffer.write(r'\fs36\b\cf1 WorkEazi Record Export\b0\fs24\cf0\par');
       buffer.write(r'\cf3 Date: ' + _date + r'\cf0\par\par');
       buffer.write(r'\cf2\fs28\b Invoice Details:\b0\cf0\fs24\par');
@@ -258,7 +249,6 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       buffer.write(r'\fs18\i Generated via WorkEazi User Portal.\i0\par}');
 
       final output = await getTemporaryDirectory();
-      // Using .doc extension (which is standard and Word reads RTF natively under .doc)
       final file = File("${output.path}/record_$_title.doc");
       await file.writeAsString(buffer.toString());
 
@@ -277,14 +267,10 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     try {
       final buffer = StringBuffer();
 
-      // Header row
       buffer.writeln('Field,Value');
-
-      // Invoice Info
       buffer.writeln('Invoice No,$_title');
       buffer.writeln('Date,$_date');
 
-      // Columns
       for (final col in widget.permittedColumns) {
         final actualKey = widget.record.keys.firstWhere(
           (k) => k.toLowerCase() == col.toLowerCase(),
@@ -292,7 +278,6 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
         );
         final val = widget.record[actualKey] ?? '-';
         final formattedVal = _formatValueForDocxOrCsv(col, val);
-        // Clean values for CSV compatibility
         final cleanCol = col.contains(',') ? '"$col"' : col;
         final cleanVal = formattedVal.contains(',')
             ? '"$formattedVal"'
@@ -328,13 +313,13 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   }
 
   void _showError(String message) {
-    showCupertinoDialog(
+    showDialog(
       context: context,
-      builder: (ctx) => CupertinoAlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Export Error'),
         content: Text(message),
         actions: [
-          CupertinoDialogAction(
+          TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('OK'),
           ),
@@ -350,7 +335,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
     Color color,
   ) {
     final isSelected = _selectedExtension == ext;
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         setState(() {
           _selectedExtension = ext;
@@ -361,7 +346,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         color: isSelected
             ? color.withValues(alpha: 0.08)
-            : const Color(0x00000000),
+            : Colors.transparent,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -374,13 +359,13 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: CupertinoColors.black,
+                    color: Colors.black87,
                   ),
                 ),
               ],
             ),
             if (isSelected)
-              Icon(CupertinoIcons.check_mark, color: color, size: 16),
+              Icon(Icons.check, color: color, size: 16),
           ],
         ),
       ),
@@ -390,13 +375,13 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   IconData _getExtensionIcon() {
     switch (_selectedExtension) {
       case '.pdf':
-        return CupertinoIcons.doc_richtext;
+        return Icons.picture_as_pdf_outlined;
       case '.doc':
-        return CupertinoIcons.doc_text;
+        return Icons.description_outlined;
       case '.csv':
-        return CupertinoIcons.table;
+        return Icons.table_chart_outlined;
       default:
-        return CupertinoIcons.doc;
+        return Icons.insert_drive_file_outlined;
     }
   }
 
@@ -407,32 +392,39 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
       case '.doc':
         return const Color(0xFF4A5568);
       case '.csv':
-        return CupertinoColors.activeGreen;
+        return Colors.green;
       default:
-        return CupertinoColors.systemBlue;
+        return Colors.blue;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text(
-          'Invoice details',
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Invoice Details',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        previousPageTitle: 'Back',
-        backgroundColor: const Color(0xFFF2F2F7),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: Colors.grey.shade200,
+            height: 1.0,
+          ),
+        ),
       ),
-      backgroundColor: const Color(0xFFF2F2F7),
-      child: SafeArea(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
-                  // Main Branding Card
                   Container(
                     margin: const EdgeInsets.only(bottom: 20),
                     padding: const EdgeInsets.all(20),
@@ -460,7 +452,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                             const Text(
                               'WORKEAZI INVOICE',
                               style: TextStyle(
-                                color: CupertinoColors.white,
+                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                                 letterSpacing: 1.2,
@@ -472,15 +464,13 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: CupertinoColors.white.withValues(
-                                  alpha: 0.2,
-                                ),
+                                color: Colors.white.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: const Text(
                                 'Active',
                                 style: TextStyle(
-                                  color: CupertinoColors.white,
+                                  color: Colors.white,
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -492,7 +482,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                         Text(
                           _title,
                           style: const TextStyle(
-                            color: CupertinoColors.white,
+                            color: Colors.white,
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
                           ),
@@ -501,17 +491,15 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                         Row(
                           children: [
                             const Icon(
-                              CupertinoIcons.calendar,
-                              color: CupertinoColors.white,
+                              Icons.calendar_today_outlined,
+                              color: Colors.white,
                               size: 16,
                             ),
                             const SizedBox(width: 6),
                             Text(
                               _date,
                               style: TextStyle(
-                                color: CupertinoColors.white.withValues(
-                                  alpha: 0.9,
-                                ),
+                                color: Colors.white.withValues(alpha: 0.9),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -522,15 +510,21 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                     ),
                   ),
 
-                  // Data Fields Card
                   Container(
                     decoration: BoxDecoration(
-                      color: CupertinoColors.white,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: CupertinoColors.systemGrey5,
+                        color: Colors.grey.shade200,
                         width: 1,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Column(
                       children: [
@@ -539,7 +533,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                           child: Row(
                             children: const [
                               Icon(
-                                CupertinoIcons.list_bullet,
+                                Icons.list_alt_outlined,
                                 color: Color(0xFF667EEA),
                                 size: 20,
                               ),
@@ -549,16 +543,13 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: CupertinoColors.black,
+                                  color: Colors.black87,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        Container(
-                          height: 0.5,
-                          color: CupertinoColors.systemGrey5,
-                        ),
+                        Divider(height: 1, color: Colors.grey.shade200),
                         ...widget.permittedColumns.map((col) {
                           final actualKey = widget.record.keys.firstWhere(
                             (k) => k.toLowerCase() == col.toLowerCase(),
@@ -584,7 +575,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                                         col,
                                         style: const TextStyle(
                                           fontSize: 14,
-                                          color: CupertinoColors.systemGrey,
+                                          color: Colors.grey,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -600,7 +591,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                                         style: const TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.bold,
-                                          color: CupertinoColors.black,
+                                          color: Colors.black87,
                                         ),
                                       ),
                                     ),
@@ -608,12 +599,11 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                                 ),
                               ),
                               if (!isLast)
-                                Container(
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  height: 0.5,
-                                  color: CupertinoColors.systemGrey5,
+                                Divider(
+                                  height: 1,
+                                  color: Colors.grey.shade200,
+                                  indent: 16,
+                                  endIndent: 16,
                                 ),
                             ],
                           );
@@ -625,22 +615,21 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
               ),
             ),
 
-            // Dropdown format selector & prominent export button
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               decoration: BoxDecoration(
-                color: CupertinoColors.white,
+                color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: CupertinoColors.systemGrey.withValues(alpha: 0.05),
+                    color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, -4),
                   ),
                 ],
-                border: const Border(
+                border: Border(
                   top: BorderSide(
-                    color: CupertinoColors.systemGrey5,
-                    width: 0.5,
+                    color: Colors.grey.shade200,
+                    width: 1,
                   ),
                 ),
               ),
@@ -648,7 +637,6 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Dropdown format selector row
                   GestureDetector(
                     onTap: () {
                       setState(() {
@@ -661,10 +649,10 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                         vertical: 14,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF2F2F7),
+                        color: Colors.grey.shade50,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: CupertinoColors.systemGrey5,
+                          color: Colors.grey.shade200,
                           width: 1,
                         ),
                       ),
@@ -684,7 +672,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
-                                  color: CupertinoColors.black,
+                                  color: Colors.black87,
                                 ),
                               ),
                             ],
@@ -702,10 +690,10 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                               const SizedBox(width: 6),
                               Icon(
                                 _isDropdownOpen
-                                    ? CupertinoIcons.chevron_up
-                                    : CupertinoIcons.chevron_down,
-                                size: 14,
-                                color: CupertinoColors.systemGrey,
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 18,
+                                color: Colors.grey,
                               ),
                             ],
                           ),
@@ -717,10 +705,10 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                     const SizedBox(height: 8),
                     Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF2F2F7),
+                        color: Colors.grey.shade50,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: CupertinoColors.systemGrey5,
+                          color: Colors.grey.shade200,
                           width: 1,
                         ),
                       ),
@@ -729,28 +717,22 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                           _buildDropdownItem(
                             '.pdf',
                             'PDF Document (.pdf)',
-                            CupertinoIcons.doc_richtext,
+                            Icons.picture_as_pdf_outlined,
                             const Color(0xFF667EEA),
                           ),
-                          Container(
-                            height: 0.5,
-                            color: CupertinoColors.systemGrey5,
-                          ),
+                          Divider(height: 1, color: Colors.grey.shade200),
                           _buildDropdownItem(
                             '.doc',
                             'Word Document (.doc)',
-                            CupertinoIcons.doc_text,
+                            Icons.description_outlined,
                             const Color(0xFF4A5568),
                           ),
-                          Container(
-                            height: 0.5,
-                            color: CupertinoColors.systemGrey5,
-                          ),
+                          Divider(height: 1, color: Colors.grey.shade200),
                           _buildDropdownItem(
                             '.csv',
                             'Spreadsheet (.csv)',
-                            CupertinoIcons.table,
-                            CupertinoColors.activeGreen,
+                            Icons.table_chart_outlined,
+                            Colors.green,
                           ),
                         ],
                       ),
@@ -758,17 +740,22 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                   ],
                   const SizedBox(height: 14),
 
-                  // Prominent Export/Download Button
-                  CupertinoButton(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    color: const Color(0xFF667EEA),
-                    borderRadius: BorderRadius.circular(12),
+                  ElevatedButton(
                     onPressed: _triggerExport,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF667EEA),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(
-                          CupertinoIcons.arrow_down_doc_fill,
+                          Icons.share_outlined,
                           size: 20,
                         ),
                         const SizedBox(width: 10),

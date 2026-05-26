@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'services/google_sheets_service.dart';
 import 'record_details_screen.dart';
@@ -57,7 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      // Fetch Sheet1 data directly from Google Sheets API to bypass caching
       final parsedData = await GoogleSheetsService.fetchSheetData();
 
       if (parsedData != null) {
@@ -78,8 +76,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // ─── EDIT ACTION ────────────────────────────────────────────────────────────
 
   void _showEditSheet(Map<String, String> item) {
-    // Date is a mandatory system column. If it's not present in permittedColumns,
-    // prepend it so the user can easily edit the date for this record.
     final editColumns = List<String>.from(_permittedColumns);
     final hasDate = editColumns.any((c) => c.toLowerCase() == 'date');
     if (!hasDate) {
@@ -98,174 +94,175 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
     };
 
-    showCupertinoModalPopup(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: const BoxDecoration(
-            color: Color(0xFFF2F2F7),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey3,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-
-              // Header row
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.8,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(color: CupertinoColors.systemGrey),
+                    // Header Bar
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          const Text(
+                            'Edit Record',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              final updatedData = <String, String>{};
+                              controllers.forEach((key, controller) {
+                                updatedData[key] = controller.text.trim();
+                              });
+                              Navigator.pop(context);
+                              await _saveEditAndRefresh(item, updatedData);
+                            },
+                            child: const Text(
+                              'Save',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Color(0xFF667EEA),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const Text(
-                      'Edit Record',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                    const Divider(height: 1),
+                    // Form fields
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: editColumns.map((col) {
+                          final isDate = col.toLowerCase() == 'date';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: TextField(
+                              controller: controllers[col],
+                              readOnly: isDate,
+                              onTap: isDate
+                                  ? () => _showDatePicker(
+                                        context,
+                                        controllers[col]!,
+                                      )
+                                  : null,
+                              decoration: InputDecoration(
+                                labelText: col,
+                                labelStyle: const TextStyle(color: Colors.grey),
+                                suffixIcon: isDate
+                                    ? const Icon(
+                                        Icons.calendar_today_outlined,
+                                        color: Color(0xFF667EEA),
+                                      )
+                                    : null,
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade200,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF667EEA),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ),
-                    ),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        final updates = {
-                          for (final col in editColumns)
-                            col: controllers[col]!.text.trim(),
-                        };
-                        Navigator.pop(ctx);
-                        _saveEditAndRefresh(item, updates);
-                      },
-                      child: const Text('Save'),
                     ),
                   ],
                 ),
               ),
-
-              const Divider(height: 0),
-
-              // Fields
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: editColumns.map((col) {
-                    final isDate = col.toLowerCase() == 'date';
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: CupertinoColors.white,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: CupertinoTextField(
-                        controller: controllers[col],
-                        readOnly: isDate,
-                        onTap: isDate ? () => _showDatePicker(context, controllers[col]!) : null,
-                        prefix: Padding(
-                          padding: const EdgeInsets.only(left: 12),
-                          child: Text(
-                            '$col: ',
-                            style: const TextStyle(
-                              color: CupertinoColors.systemGrey,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                        placeholder: isDate ? 'Select date' : 'Enter value',
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 14,
-                        ),
-                        decoration: null,
-                        suffix: isDate
-                            ? const Padding(
-                                padding: EdgeInsets.only(right: 12),
-                                child: Icon(
-                                  CupertinoIcons.calendar,
-                                  color: Color(0xFF667EEA),
-                                  size: 20,
-                                ),
-                              )
-                            : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
   Future<void> _saveEditAndRefresh(
-    Map<String, String> item,
-    Map<String, String> updates,
+    Map<String, String> originalItem,
+    Map<String, String> updatedData,
   ) async {
-    // 1. Instantly update the local memory state and rebuild (1 ms response!)
     final originalList = List<Map<String, String>>.from(_dataList);
 
-    final ivNoKey = item.keys.firstWhere(
+    // Identify row key identifier (IV NO)
+    final ivKey = originalItem.keys.firstWhere(
       (k) => k.toLowerCase() == 'iv no',
-      orElse: () => 'IV NO',
+      orElse: () => '',
     );
-    final targetIvNo = item[ivNoKey] ?? '';
-
-    int targetIndex = -1;
-    for (int i = 0; i < _dataList.length; i++) {
-      if ((_dataList[i][ivNoKey] ?? '').toLowerCase() ==
-          targetIvNo.toLowerCase()) {
-        targetIndex = i;
-        break;
-      }
+    if (ivKey.isEmpty) {
+      _showErrorDialog('Missing Key: Could not locate IV NO column identifier.');
+      return;
     }
+
+    final targetIvValue = originalItem[ivKey] ?? '';
+
+    // Align all fields perfectly
+    final alignedRecord = <String, String>{};
+    originalItem.forEach((key, val) {
+      alignedRecord[key] = val;
+    });
+
+    updatedData.forEach((key, val) {
+      final actualKey = alignedRecord.keys.firstWhere(
+        (k) => k.toLowerCase() == key.toLowerCase(),
+        orElse: () => key,
+      );
+      alignedRecord[actualKey] = val;
+    });
+
+    final targetIndex = _dataList.indexWhere(
+      (item) => (item[ivKey] ?? '') == targetIvValue,
+    );
 
     if (targetIndex != -1) {
       setState(() {
-        final updatedRecord = Map<String, String>.from(_dataList[targetIndex]);
-        updates.forEach((key, val) {
-          final actualKey = updatedRecord.keys.firstWhere(
-            (k) => k.toLowerCase() == key.toLowerCase(),
-            orElse: () => key,
-          );
-          updatedRecord[actualKey] = val;
-        });
-        _dataList[targetIndex] = updatedRecord;
+        _dataList[targetIndex] = alignedRecord;
       });
     }
 
-    // 2. Perform the API call in the background without blocking the UI
     try {
-      if (targetIvNo.isEmpty) {
-        _showErrorDialog('Could not find a row identifier (IV NO).');
-        return;
-      }
-
       final error = await GoogleSheetsService.editRow(
-        ivNo: targetIvNo,
-        updates: updates,
+        ivNo: targetIvValue,
+        updates: alignedRecord,
       );
 
       if (error != null) {
-        // Rollback to original if API call failed
         setState(() {
           _dataList = originalList;
         });
@@ -273,7 +270,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // Quietly fetch fresh data from sheet to ensure full synchronization (without blocking loader)
       final parsedData = await GoogleSheetsService.fetchSheetData();
       if (parsedData != null) {
         setState(() {
@@ -281,7 +277,6 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      // Rollback
       setState(() {
         _dataList = originalList;
       });
@@ -290,81 +285,58 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showSortSheet() {
-    showCupertinoModalPopup(
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
-        title: const Text('Sort Records By'),
-        message: const Text('Select a chronological order for the records'),
-        actions: <CupertinoActionSheetAction>[
-          CupertinoActionSheetAction(
-            onPressed: () {
-              setState(() {
-                _isSortDescending = true;
-              });
-              Navigator.pop(context);
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Updated Time: Newest First',
-                  style: TextStyle(
-                    color: CupertinoColors.black,
-                    fontSize: 16,
-                  ),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Sort Records By',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
-                if (_isSortDescending) ...[
-                  const SizedBox(width: 8),
-                  const Icon(
-                    CupertinoIcons.check_mark,
-                    size: 18,
-                    color: Color(0xFF667EEA),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              setState(() {
-                _isSortDescending = false;
-              });
-              Navigator.pop(context);
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Updated Time: Oldest First',
-                  style: TextStyle(
-                    color: CupertinoColors.black,
-                    fontSize: 16,
-                  ),
-                ),
-                if (!_isSortDescending) ...[
-                  const SizedBox(width: 8),
-                  const Icon(
-                    CupertinoIcons.check_mark,
-                    size: 18,
-                    color: Color(0xFF667EEA),
-                  ),
-                ],
-              ],
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.arrow_downward, color: Color(0xFF667EEA)),
+              title: const Text('Updated Time: Newest First'),
+              trailing: _isSortDescending
+                  ? const Icon(Icons.check, color: Color(0xFF667EEA))
+                  : null,
+              onTap: () {
+                setState(() {
+                  _isSortDescending = true;
+                });
+                Navigator.pop(context);
+              },
             ),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () {
-            Navigator.pop(context);
-          },
-          child: const Text(
-            'Cancel',
-            style: TextStyle(
-              color: CupertinoColors.systemRed,
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
+            ListTile(
+              leading: const Icon(Icons.arrow_upward, color: Color(0xFF667EEA)),
+              title: const Text('Updated Time: Oldest First'),
+              trailing: !_isSortDescending
+                  ? const Icon(Icons.check, color: Color(0xFF667EEA))
+                  : null,
+              onTap: () {
+                setState(() {
+                  _isSortDescending = false;
+                });
+                Navigator.pop(context);
+              },
             ),
-          ),
+            const SizedBox(height: 8),
+          ],
         ),
       ),
     );
@@ -373,10 +345,9 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime _parseDateString(String dateStr) {
     try {
       if (dateStr.isEmpty) return DateTime.now();
-      
+
       final cleaned = dateStr.trim();
-      
-      // Case 1: dd-MMM or dd-MMM-yyyy (e.g. 26-Jan or 26-Jan-2026)
+
       final parts = cleaned.split('-');
       if (parts.length >= 2) {
         final day = int.tryParse(parts[0]);
@@ -395,89 +366,55 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
       }
-      
-      // Case 2: standard ISO parse
+
       return DateTime.parse(cleaned);
     } catch (_) {
       return DateTime.now();
     }
   }
 
-  void _showDatePicker(BuildContext context, TextEditingController controller) {
-    final parsedInitial = _parseDateString(controller.text);
-    showCupertinoModalPopup(
-      context: context,
-      builder: (BuildContext ctx) => Container(
-        height: 300,
-        color: CupertinoColors.systemBackground.resolveFrom(context),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              // Header with Done/Cancel buttons
-              Container(
-                color: CupertinoColors.systemGrey6,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cancel', style: TextStyle(color: CupertinoColors.systemGrey)),
-                    ),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.date,
-                  initialDateTime: parsedInitial,
-                  onDateTimeChanged: (DateTime newDate) {
-                    final months = [
-                      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-                    ];
-                    controller.text = '${newDate.day.toString().padLeft(2, '0')}-${months[newDate.month - 1]}';
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  String _formatDateToString(DateTime dt) {
+    final day = dt.day.toString().padLeft(2, '0');
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final monthStr = months[dt.month - 1];
+    return '$day-$monthStr';
   }
 
-  // ─── ADD ACTION ──────────────────────────────────────────────────────────────
+  Future<void> _showDatePicker(
+    BuildContext context,
+    TextEditingController controller,
+  ) async {
+    final parsedInitial = _parseDateString(controller.text);
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: parsedInitial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2101),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF667EEA),
+              onPrimary: Colors.white,
+              onSurface: Colors.black87,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      controller.text = _formatDateToString(picked);
+    }
+  }
+
+  // ─── ADD NEW RECORD ACTION ──────────────────────────────────────────────────
 
   void _showAddSheet() {
-    // Format current date
-    final now = DateTime.now();
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec'
-    ];
-    final defaultDate =
-        '${now.day.toString().padLeft(2, '0')}-${months[now.month - 1]}';
-
-    // Date is a mandatory system column. If it's not present in permittedColumns,
-    // prepend it so the user can easily select the date for the new record.
     final addColumns = List<String>.from(_permittedColumns);
     final hasDate = addColumns.any((c) => c.toLowerCase() == 'date');
     if (!hasDate) {
@@ -487,141 +424,142 @@ class _HomeScreenState extends State<HomeScreen> {
     final controllers = {
       for (final col in addColumns)
         col: TextEditingController(
-          text: col.toLowerCase() == 'date' ? defaultDate : '',
+          text: col.toLowerCase() == 'date'
+              ? _formatDateToString(DateTime.now())
+              : '',
         ),
     };
 
-    showCupertinoModalPopup(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: const BoxDecoration(
-            color: Color(0xFFF2F2F7),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: CupertinoColors.systemGrey3,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-
-              // Header row
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.8,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(color: CupertinoColors.systemGrey),
+                    // Header Bar
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          const Text(
+                            'Add New Record',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              final newRecord = <String, String>{};
+                              controllers.forEach((key, controller) {
+                                newRecord[key] = controller.text.trim();
+                              });
+                              Navigator.pop(context);
+                              await _saveAddAndRefresh(newRecord);
+                            },
+                            child: const Text(
+                              'Save',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Color(0xFF667EEA),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const Text(
-                      'Add New Record',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                    const Divider(height: 1),
+                    // Form fields
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: addColumns.map((col) {
+                          final isDate = col.toLowerCase() == 'date';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: TextField(
+                              controller: controllers[col],
+                              readOnly: isDate,
+                              onTap: isDate
+                                  ? () => _showDatePicker(
+                                        context,
+                                        controllers[col]!,
+                                      )
+                                  : null,
+                              decoration: InputDecoration(
+                                labelText: col,
+                                labelStyle: const TextStyle(color: Colors.grey),
+                                suffixIcon: isDate
+                                    ? const Icon(
+                                        Icons.calendar_today_outlined,
+                                        color: Color(0xFF667EEA),
+                                      )
+                                    : null,
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade200,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF667EEA),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
                       ),
-                    ),
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        final newRecord = {
-                          for (final col in addColumns)
-                            col: controllers[col]!.text.trim(),
-                        };
-                        Navigator.pop(ctx);
-                        _saveAddAndRefresh(newRecord);
-                      },
-                      child: const Text('Add'),
                     ),
                   ],
                 ),
               ),
-
-              const Divider(height: 0),
-
-              // Fields
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: addColumns.map((col) {
-                    final isDate = col.toLowerCase() == 'date';
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: CupertinoColors.white,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: CupertinoTextField(
-                        controller: controllers[col],
-                        readOnly: isDate,
-                        onTap: isDate ? () => _showDatePicker(context, controllers[col]!) : null,
-                        prefix: Padding(
-                          padding: const EdgeInsets.only(left: 12),
-                          child: Text(
-                            '$col: ',
-                            style: const TextStyle(
-                              color: CupertinoColors.systemGrey,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                        placeholder: isDate ? 'Select date' : 'Enter $col',
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 14,
-                        ),
-                        decoration: null,
-                        suffix: isDate
-                            ? const Padding(
-                                padding: EdgeInsets.only(right: 12),
-                                child: Icon(
-                                  CupertinoIcons.calendar,
-                                  color: Color(0xFF667EEA),
-                                  size: 20,
-                                ),
-                              )
-                            : null,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
   Future<void> _saveAddAndRefresh(Map<String, String> newRecord) async {
-    // 1. Instantly append locally and rebuild (1 ms response!)
     final originalList = List<Map<String, String>>.from(_dataList);
 
-    // Align keys and populate all columns from existing sheet structure to ensure
-    // that Edit, Delete, and Details actions work flawlessly on this new record immediately!
     final alignedRecord = <String, String>{};
     if (_dataList.isNotEmpty) {
       for (final key in _dataList.first.keys) {
         alignedRecord[key] = '';
       }
     }
-    
+
     newRecord.forEach((key, val) {
       final actualKey = alignedRecord.keys.firstWhere(
         (k) => k.toLowerCase() == key.toLowerCase(),
@@ -634,12 +572,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _dataList.add(alignedRecord);
     });
 
-    // 2. Perform the API call in the background without blocking the UI
     try {
       final error = await GoogleSheetsService.addRow(rowData: alignedRecord);
 
       if (error != null) {
-        // Rollback
         setState(() {
           _dataList = originalList;
         });
@@ -647,7 +583,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // Quietly fetch fresh data from sheet to ensure full synchronization (without blocking loader)
       final parsedData = await GoogleSheetsService.fetchSheetData();
       if (parsedData != null) {
         setState(() {
@@ -655,90 +590,78 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (e) {
-      // Rollback
       setState(() {
         _dataList = originalList;
       });
-      _showErrorDialog('Failed to create record: $e');
+      _showErrorDialog('Failed to save changes: $e');
     }
   }
 
-  // ─── DELETE ACTION ───────────────────────────────────────────────────────────
+  // ─── DELETE ACTION ──────────────────────────────────────────────────────────
 
   void _confirmDelete(Map<String, String> item) {
-    showCupertinoDialog(
+    final ivKey = item.keys.firstWhere(
+      (k) => k.toLowerCase() == 'iv no',
+      orElse: () => '',
+    );
+    final recordId = ivKey.isNotEmpty ? (item[ivKey] ?? '') : '';
+
+    showDialog(
       context: context,
-      builder: (ctx) => CupertinoAlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Delete Record'),
-        content: const Text(
-          'Are you sure you want to delete this record? This will set its permitted columns to "nil".',
-        ),
+        content: Text('Are you sure you want to delete this record ($recordId)?'),
         actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
+          TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey),
+            ),
           ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () async {
+          TextButton(
+            onPressed: () {
               Navigator.pop(ctx);
-              await _deleteRow(item);
+              _performDelete(item);
             },
-            child: const Text('Delete'),
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _deleteRow(Map<String, String> item) async {
-    // 1. Instantly update the local memory state to "nil" and rebuild (1 ms response!)
+  Future<void> _performDelete(Map<String, String> item) async {
     final originalList = List<Map<String, String>>.from(_dataList);
 
-    final ivNoKey = item.keys.firstWhere(
+    final ivKey = item.keys.firstWhere(
       (k) => k.toLowerCase() == 'iv no',
-      orElse: () => 'IV NO',
+      orElse: () => '',
     );
-    final targetIvNo = item[ivNoKey] ?? '';
-
-    int targetIndex = -1;
-    for (int i = 0; i < _dataList.length; i++) {
-      if ((_dataList[i][ivNoKey] ?? '').toLowerCase() ==
-          targetIvNo.toLowerCase()) {
-        targetIndex = i;
-        break;
-      }
+    if (ivKey.isEmpty) {
+      _showErrorDialog('Missing Identifier: Could not locate IV NO column identifier.');
+      return;
     }
 
-    if (targetIndex != -1) {
-      setState(() {
-        final updatedRecord = Map<String, String>.from(_dataList[targetIndex]);
-        for (final col in _permittedColumns) {
-          final actualKey = updatedRecord.keys.firstWhere(
-            (k) => k.toLowerCase() == col.toLowerCase(),
-            orElse: () => col,
-          );
-          updatedRecord[actualKey] = 'nil';
-        }
-        _dataList[targetIndex] = updatedRecord;
-      });
-    }
+    final targetIvValue = item[ivKey] ?? '';
 
-    // 2. Perform the API call in the background without blocking the UI
+    setState(() {
+      _dataList.removeWhere((rec) => (rec[ivKey] ?? '') == targetIvValue);
+    });
+
     try {
-      if (targetIvNo.isEmpty) {
-        _showErrorDialog('Could not find a row identifier (IV NO).');
-        return;
-      }
-
       final error = await GoogleSheetsService.clearRowToNil(
-        ivNo: targetIvNo,
+        ivNo: targetIvValue,
         permittedColumns: _permittedColumns,
       );
 
       if (error != null) {
-        // Rollback
         setState(() {
           _dataList = originalList;
         });
@@ -746,58 +669,72 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      // Quietly fetch fresh data from sheet to ensure full synchronization (without blocking loader)
       final parsedData = await GoogleSheetsService.fetchSheetData();
       if (parsedData != null) {
         setState(() {
           _dataList = parsedData;
         });
       }
+      _showSuccessDialog('Record deleted successfully.');
     } catch (e) {
-      // Rollback
       setState(() {
         _dataList = originalList;
       });
-      _showErrorDialog('Failed to delete: $e');
+      _showErrorDialog('Failed to delete record: $e');
     }
   }
+
+  // ─── DIALOGS & WIDGET BUILDERS ──────────────────────────────────────────────
 
   void _showErrorDialog(String message) {
-    if (mounted) {
-      showCupertinoDialog(
-        context: context,
-        builder: (ctx) => CupertinoAlertDialog(
-          title: const Text('Error'),
-          content: Text(message),
-          actions: [
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
-  // ─── UI HELPERS ──────────────────────────────────────────────────────────────
+  void _showSuccessDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Success'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildEmptyState(IconData icon, String title, String subtitle) {
     return SliverFillRemaining(
+      hasScrollBody: false,
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32.0),
+          padding: const EdgeInsets.symmetric(horizontal: 32.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 52, color: CupertinoColors.systemGrey3),
+              Icon(icon, size: 52, color: Colors.grey.shade400),
               const SizedBox(height: 16),
               Text(
                 title,
                 style: const TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
               const SizedBox(height: 8),
@@ -806,8 +743,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14,
-                  color: CupertinoColors.systemGrey,
-                  height: 1.6,
+                  color: Colors.grey,
                 ),
               ),
             ],
@@ -817,255 +753,183 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPermissionBadge({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.4), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatCardValue(String col, String val) {
-    if (val.isEmpty || val == '-') return val;
-    final lowerCol = col.toLowerCase();
-    final isMonetary = lowerCol.contains('value') ||
-                       lowerCol.contains('amount') ||
-                       lowerCol.contains('price') ||
-                       lowerCol.contains('total') ||
-                       lowerCol.contains('balance') ||
-                       lowerCol.contains('paid');
-                       
-    if (isMonetary) {
-      if (!val.contains('\u20B9') && !val.contains('Rs') && !val.contains('\$')) {
-        return '\u20B9$val';
-      }
-    }
-    return val;
-  }
-
   Widget _buildCard(Map<String, String> item) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          CupertinoPageRoute(
-            builder: (context) => RecordDetailsScreen(
-              record: item,
-              permittedColumns: _permittedColumns,
-            ),
-          ),
-        );
-      },
+    final ivKey = item.keys.firstWhere(
+      (k) => k.toLowerCase() == 'iv no',
+      orElse: () => '',
+    );
+    final title = ivKey.isNotEmpty ? (item[ivKey] ?? '-') : '-';
+
+    final dateKey = item.keys.firstWhere(
+      (k) => k.toLowerCase() == 'date',
+      orElse: () => '',
+    );
+    final dateVal = dateKey.isNotEmpty ? (item[dateKey] ?? '-') : '-';
+
+    final displayFields = _permittedColumns
+        .where((col) => col.toLowerCase() != 'iv no' && col.toLowerCase() != 'date')
+        .toList();
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      elevation: 0,
+      color: Colors.white,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: CupertinoColors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: CupertinoColors.systemGrey5, width: 1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200, width: 1),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header Row: Date (Left) & Actions (Right)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Date Display with calendar icon
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        CupertinoIcons.calendar,
-                        size: 16,
-                        color: CupertinoColors.systemGrey,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        item.entries
-                            .firstWhere(
-                              (entry) => entry.key.toLowerCase() == 'date',
-                              orElse: () => const MapEntry('Date', '-'),
-                            )
-                            .value,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RecordDetailsScreen(
+                  record: item,
+                  permittedColumns: _permittedColumns,
+                ),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top header Row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
                         style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: CupertinoColors.systemGrey,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
                         ),
                       ),
-                    ],
-                  ),
-                  // Action buttons (Write + Delete) with icon and text
-                  if (_canWrite || _canDelete)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_canWrite)
-                          CupertinoButton(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            color: CupertinoColors.systemBlue.withValues(
-                              alpha: 0.1,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                            onPressed: () => _showEditSheet(item),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  CupertinoIcons.pencil,
-                                  size: 14,
-                                  color: CupertinoColors.systemBlue,
-                                ),
-                                SizedBox(width: 5),
-                                Text(
-                                  'Edit',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: CupertinoColors.systemBlue,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            minimumSize: Size(0, 0),
-                          ),
-                        if (_canWrite && _canDelete) const SizedBox(width: 8),
-                        if (_canDelete)
-                          CupertinoButton(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            color: CupertinoColors.systemRed.withValues(
-                              alpha: 0.1,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                            onPressed: () => _confirmDelete(item),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  CupertinoIcons.trash,
-                                  size: 14,
-                                  color: CupertinoColors.systemRed,
-                                ),
-                                SizedBox(width: 5),
-                                Text(
-                                  'Delete',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: CupertinoColors.systemRed,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            minimumSize: Size(0, 0),
-                          ),
-                      ],
                     ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Data rows
-              ..._permittedColumns.map((col) {
-                final actualHeader = item.keys.firstWhere(
-                  (k) => k.toLowerCase() == col.toLowerCase(),
-                  orElse: () => col,
-                );
-                final val = item[actualHeader] ?? '-';
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          col,
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 14,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          dateVal,
                           style: const TextStyle(
-                            fontSize: 14,
-                            color: CupertinoColors.systemGrey,
+                            fontSize: 13,
+                            color: Colors.grey,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Divider(height: 1, color: Colors.grey.shade100),
+                const SizedBox(height: 12),
+
+                // Properties layout
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 10,
+                  children: displayFields.map((col) {
+                    final actualKey = item.keys.firstWhere(
+                      (k) => k.toLowerCase() == col.toLowerCase(),
+                      orElse: () => col,
+                    );
+                    final rawVal = item[actualKey] ?? '-';
+                    final val = rawVal.isEmpty ? '-' : rawVal;
+
+                    return SizedBox(
+                      width: 140,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            col,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            val,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          _formatCardValue(col, val.isEmpty ? '-' : val),
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: CupertinoColors.black,
-                            fontFamilyFallback: ['Roboto', 'NotoSans'],
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 16),
+                Divider(height: 1, color: Colors.grey.shade100),
+                const SizedBox(height: 10),
+
+                // Lower actions bar
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          size: 15,
+                          color: Color(0xFF667EEA),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'View Details',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF667EEA),
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-
-              // Divider + permission badges
-              const SizedBox(height: 8),
-              Container(height: 0.5, color: CupertinoColors.systemGrey5),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  if (_canRead)
-                    _buildPermissionBadge(
-                      icon: CupertinoIcons.eye_fill,
-                      label: 'Read',
-                      color: CupertinoColors.systemGreen,
+                      ],
                     ),
-                  if (_canWrite)
-                    _buildPermissionBadge(
-                      icon: CupertinoIcons.pencil,
-                      label: 'Write',
-                      color: CupertinoColors.systemBlue,
+                    Row(
+                      children: [
+                        if (_canWrite) ...[
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                            iconSize: 20,
+                            onPressed: () => _showEditSheet(item),
+                          ),
+                        ],
+                        if (_canDelete) ...[
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            iconSize: 20,
+                            onPressed: () => _confirmDelete(item),
+                          ),
+                        ],
+                      ],
                     ),
-                  if (_canDelete)
-                    _buildPermissionBadge(
-                      icon: CupertinoIcons.trash_fill,
-                      label: 'Delete',
-                      color: CupertinoColors.systemRed,
-                    ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1078,13 +942,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_searchQuery.isEmpty) return true;
       final q = _searchQuery.toLowerCase();
 
-      // 1. Direct value checking
       final matchesAnyValue = item.values.any(
         (val) => val.toLowerCase().contains(q),
       );
       if (matchesAnyValue) return true;
 
-      // 2. Ultra-flexible date search (normalize slashes / dots / dashes to match interchangeably)
       final dateKey = item.keys.firstWhere(
         (k) => k.toLowerCase() == 'date',
         orElse: () => '',
@@ -1106,193 +968,177 @@ class _HomeScreenState extends State<HomeScreen> {
         ? filteredList.reversed.toList()
         : filteredList;
 
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('Dashboard', style: TextStyle(color: Colors.black)),
-        backgroundColor: Color(0xFFF2F2F7),
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFD8D8D8), width: 0.5),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFFF8F9FA),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.0),
+          child: Container(
+            color: Colors.grey.shade200,
+            height: 1.0,
+          ),
         ),
       ),
-      backgroundColor: const Color(0xFFF2F2F7),
-      child: SafeArea(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: SafeArea(
         child: _isLoading
-            ? const Center(child: CupertinoActivityIndicator(radius: 14))
-            : CustomScrollView(
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                slivers: [
-                  CupertinoSliverRefreshControl(onRefresh: _fetchSheetData),
-
-                  if (_permittedColumns.isEmpty)
-                    _buildEmptyState(
-                      CupertinoIcons.person_badge_minus,
-                      'No Permissions',
-                      'You have no column permissions assigned.\nPlease contact your administrator.',
-                    )
-                  else if (!_canRead)
-                    _buildEmptyState(
-                      CupertinoIcons.lock_fill,
-                      'Access Restricted',
-                      'You do not have read access to view this data.\nPlease contact your administrator.',
-                    )
-                  else ...[
-                    // Smooth, Premium Aesthetic Search & Sort Bar Row
-                    if (_dataList.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                            left: 16,
-                            right: 16,
-                            top: 16,
-                            bottom: 4,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: CupertinoColors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: CupertinoColors.systemGrey.withValues(
-                                          alpha: 0.08,
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFF667EEA)))
+            : RefreshIndicator(
+                color: const Color(0xFF667EEA),
+                onRefresh: _fetchSheetData,
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  slivers: [
+                    if (_permittedColumns.isEmpty)
+                      _buildEmptyState(
+                        Icons.person_off_outlined,
+                        'No Permissions',
+                        'You have no column permissions assigned.\nPlease contact your administrator.',
+                      )
+                    else if (!_canRead)
+                      _buildEmptyState(
+                        Icons.lock_outline,
+                        'Access Restricted',
+                        'You do not have read access to view this data.\nPlease contact your administrator.',
+                      )
+                    else ...[
+                      // Search & Sort Bar Row
+                      if (_dataList.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              left: 16,
+                              right: 16,
+                              top: 16,
+                              bottom: 4,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.04),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
                                         ),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
+                                      ],
+                                    ),
+                                    child: TextField(
+                                      controller: _searchController,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        color: Colors.black87,
                                       ),
-                                    ],
-                                  ),
-                                  child: CupertinoTextField(
-                                    controller: _searchController,
-                                    placeholder: 'Search records...',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: CupertinoColors.black,
-                                    ),
-                                    placeholderStyle: const TextStyle(
-                                      color: CupertinoColors.systemGrey,
-                                      fontSize: 15,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 14,
-                                    ),
-                                    decoration: null,
-                                    prefix: const Padding(
-                                      padding: EdgeInsets.only(left: 14),
-                                      child: Icon(
-                                        CupertinoIcons.search,
-                                        size: 20,
-                                        color: Color(0xFF667EEA),
+                                      decoration: InputDecoration(
+                                        hintText: 'Search records...',
+                                        hintStyle: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 15,
+                                        ),
+                                        prefixIcon: const Icon(
+                                          Icons.search,
+                                          size: 20,
+                                          color: Color(0xFF667EEA),
+                                        ),
+                                        suffixIcon: _searchQuery.isNotEmpty
+                                            ? IconButton(
+                                                icon: const Icon(Icons.clear, size: 18),
+                                                onPressed: () {
+                                                  _searchController.clear();
+                                                  setState(() {
+                                                    _searchQuery = '';
+                                                  });
+                                                },
+                                              )
+                                            : null,
+                                        border: InputBorder.none,
+                                        contentPadding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
                                       ),
+                                      onChanged: (val) {
+                                        setState(() {
+                                          _searchQuery = val.trim();
+                                        });
+                                      },
                                     ),
-                                    suffix: _searchQuery.isNotEmpty
-                                        ? CupertinoButton(
-                                            padding: EdgeInsets.zero,
-                                            onPressed: () {
-                                              _searchController.clear();
-                                              setState(() {
-                                                _searchQuery = '';
-                                              });
-                                            },
-                                            child: const Padding(
-                                              padding: EdgeInsets.only(right: 14),
-                                              child: Icon(
-                                                CupertinoIcons.clear,
-                                                size: 18,
-                                                color: CupertinoColors.systemGrey3,
-                                              ),
-                                            ),
-                                          )
-                                        : null,
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _searchQuery = val.trim();
-                                      });
-                                    },
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              GestureDetector(
-                                onTap: _showSortSheet,
-                                child: Container(
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    color: CupertinoColors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: CupertinoColors.systemGrey.withValues(
-                                          alpha: 0.08,
+                                const SizedBox(width: 10),
+                                InkWell(
+                                  onTap: _showSortSheet,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.04),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
                                         ),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    _isSortDescending
-                                        ? CupertinoIcons.sort_down
-                                        : CupertinoIcons.sort_up,
-                                    color: const Color(0xFF667EEA),
-                                    size: 20,
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      _isSortDescending
+                                          ? Icons.arrow_downward
+                                          : Icons.arrow_upward,
+                                      color: const Color(0xFF667EEA),
+                                      size: 20,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
 
-                    // Smooth, Premium Aesthetic Add New Record Button
-                    if (_canWrite)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                            left: 16,
-                            right: 16,
-                            top: 12,
-                            bottom: 4,
-                          ),
-                          child: GestureDetector(
-                            onTap: _showAddSheet,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 14,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
+                      // Add New Record Button
+                      if (_canWrite)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              left: 16,
+                              right: 16,
+                              top: 12,
+                              bottom: 4,
+                            ),
+                            child: ElevatedButton(
+                              onPressed: _showAddSheet,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF667EEA),
+                                foregroundColor: Colors.white,
+                                shadowColor: const Color(0xFF667EEA).withValues(alpha: 0.25),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF667EEA).withValues(alpha: 0.25),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                                elevation: 2,
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: const [
                                   Icon(
-                                    CupertinoIcons.add_circled_solid,
-                                    color: CupertinoColors.white,
+                                    Icons.add_circle_outline,
+                                    color: Colors.white,
                                     size: 20,
                                   ),
                                   SizedBox(width: 8),
                                   Text(
                                     'Add New Record',
                                     style: TextStyle(
-                                      color: CupertinoColors.white,
+                                      color: Colors.white,
                                       fontSize: 15,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -1302,32 +1148,32 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                      ),
 
-                    if (_dataList.isEmpty)
-                      _buildEmptyState(
-                        CupertinoIcons.tray,
-                        'No Data',
-                        'No records were found in the sheet.',
-                      )
-                    else if (displayList.isEmpty)
-                      _buildEmptyState(
-                        CupertinoIcons.search,
-                        'No Results Found',
-                        'We couldn\'t find any records matching "$_searchQuery".',
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.all(16),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) => _buildCard(displayList[index]),
-                            childCount: displayList.length,
+                      if (_dataList.isEmpty)
+                        _buildEmptyState(
+                          Icons.inbox_outlined,
+                          'No Data',
+                          'No records were found in the sheet.',
+                        )
+                      else if (displayList.isEmpty)
+                        _buildEmptyState(
+                          Icons.search_off_outlined,
+                          'No Results Found',
+                          'We couldn\'t find any records matching "$_searchQuery".',
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.all(16),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => _buildCard(displayList[index]),
+                              childCount: displayList.length,
+                            ),
                           ),
                         ),
-                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
       ),
     );

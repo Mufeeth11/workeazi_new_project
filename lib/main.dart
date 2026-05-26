@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'login_page.dart';
 
 void main() {
@@ -10,18 +10,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'WorkEazi',
-      theme: const CupertinoThemeData(
-        primaryColor: CupertinoColors.systemPurple,
-        // Use Roboto globally — removes iOS San Francisco font
-        textTheme: CupertinoTextThemeData(
-          textStyle: TextStyle(
-            fontFamily: 'Roboto',
-            color: CupertinoColors.black,
-          ),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF667EEA),
+          primary: const Color(0xFF667EEA),
+          secondary: const Color(0xFF764BA2),
+          surface: const Color(0xFFF8F9FA),
         ),
+        fontFamily: 'Roboto',
       ),
       home: const LoginPage(),
     );

@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'home_screen.dart';
 
@@ -24,14 +24,14 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _showErrorDialog(String title, String message, [String? details]) {
-    showCupertinoDialog(
+    showDialog(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
+      builder: (context) => AlertDialog(
         title: Text(title),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
             Text(message),
             if (details != null) ...[
               const SizedBox(height: 12),
@@ -39,15 +39,14 @@ class _LoginPageState extends State<LoginPage> {
                 details,
                 style: const TextStyle(
                   fontSize: 12,
-                  color: CupertinoColors.systemGrey,
+                  color: Colors.grey,
                 ),
               ),
             ],
           ],
         ),
         actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
+          TextButton(
             child: const Text('OK'),
             onPressed: () => Navigator.pop(context),
           ),
@@ -92,7 +91,6 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // Fetching the public CSV export of the Google Sheet
       final url = Uri.parse(
         'https://docs.google.com/spreadsheets/d/1lkImcQTYrsKBc4eafO6AOyRqlqhXTXnn40gYb4B5jzM/export?format=csv&gid=751895921',
       );
@@ -107,13 +105,11 @@ class _LoginPageState extends State<LoginPage> {
         String userPermissions = '';
         String userAccessPermissions = '';
 
-        // Skip the header row if there is one (assuming first row is headers)
         for (int i = 0; i < lines.length; i++) {
           final line = lines[i];
           final columns = _parseCsvLine(line);
 
           if (columns.length >= 3) {
-            // Trim whitespaces from the parsed CSV data
             final cellEmployeeId = columns[0].trim();
             final cellEmail = columns[1].trim();
             final cellPassword = columns[2].trim();
@@ -122,16 +118,14 @@ class _LoginPageState extends State<LoginPage> {
               userFound = true;
               if (cellPassword == password) {
                 passwordMatched = true;
-                // Permissions is at Column F (index 5)
                 if (columns.length > 5) {
                   userPermissions = columns[5].trim();
                 }
-                // Access Permissions is at Column G (index 6)
                 if (columns.length > 6) {
                   userAccessPermissions = columns[6].trim();
                 }
               }
-              break; // Stop searching once the user is found
+              break;
             }
           }
         }
@@ -141,11 +135,10 @@ class _LoginPageState extends State<LoginPage> {
         } else if (!passwordMatched) {
           _showErrorDialog('Login Failed', 'Incorrect password.');
         } else {
-          // Success! Navigate to the home screen
           if (mounted) {
             Navigator.pushReplacement(
               context,
-              CupertinoPageRoute(
+              MaterialPageRoute(
                 builder: (context) => HomeScreen(
                   loginId: loginId,
                   permissions: userPermissions,
@@ -156,10 +149,9 @@ class _LoginPageState extends State<LoginPage> {
           }
         }
       } else {
-        // HTTP Error handling (e.g. 401 if sheet is not public)
         _showErrorDialog(
           'Network Error',
-          'Failed to fetch data. Ensure your Google Sheet is set to "Anyone with the link can view". Status Code: ${response.statusCode}',
+          'Failed to fetch data. Status Code: ${response.statusCode}',
         );
       }
     } catch (e) {
@@ -189,7 +181,6 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // 1. Verify that the user exists in the sheet first
       final url = Uri.parse(
         'https://docs.google.com/spreadsheets/d/1lkImcQTYrsKBc4eafO6AOyRqlqhXTXnn40gYb4B5jzM/export?format=csv&gid=751895921',
       );
@@ -219,9 +210,6 @@ class _LoginPageState extends State<LoginPage> {
             'No account exists with this Email or Employee ID.',
           );
         } else {
-          // 2. The user exists.
-          // Note: Updating a Google Sheet directly from the app securely requires an API endpoint (e.g. Google Apps Script Web App).
-          // Replace this URL with your deployed Google Apps Script Web App URL from the walkthrough artifact.
           final updateUrl = Uri.parse('YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL');
 
           if (updateUrl.toString() == 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
@@ -266,8 +254,8 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      child: Container(
+    return Scaffold(
+      body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -284,9 +272,9 @@ class _LoginPageState extends State<LoginPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Icon(
-                    CupertinoIcons.lock_shield,
+                    Icons.admin_panel_settings_outlined,
                     size: 80,
-                    color: CupertinoColors.white,
+                    color: Colors.white,
                   ),
                   const SizedBox(height: 24),
                   const Text(
@@ -295,116 +283,111 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: CupertinoColors.white,
+                      color: Colors.white,
                       letterSpacing: 1.2,
-                      decoration: TextDecoration.none,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'Login to your account',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
-                      color: CupertinoColors.white.withValues(alpha: 0.7),
-                      decoration: TextDecoration.none,
+                      color: Colors.white70,
                     ),
                   ),
                   const SizedBox(height: 48),
-                  CupertinoTextField(
+                  TextField(
                     controller: _emailController,
-                    style: const TextStyle(color: CupertinoColors.white),
+                    style: const TextStyle(color: Colors.white),
                     keyboardType: TextInputType.emailAddress,
-                    placeholder: 'Email or Employee ID',
-                    placeholderStyle: TextStyle(
-                      color: CupertinoColors.white.withValues(alpha: 0.5),
-                    ),
-                    prefix: Padding(
-                      padding: const EdgeInsets.only(left: 16.0, right: 8.0),
-                      child: Icon(
-                        CupertinoIcons.mail,
-                        color: CupertinoColors.white.withValues(alpha: 0.7),
+                    decoration: InputDecoration(
+                      labelText: 'Email or Employee ID',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      prefixIcon: const Icon(Icons.email_outlined, color: Colors.white70),
+                      fillColor: Colors.white.withValues(alpha: 0.1),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Colors.white24),
                       ),
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: CupertinoColors.white.withValues(alpha: 0.2),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Colors.white),
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  CupertinoTextField(
+                  TextField(
                     controller: _passwordController,
                     obscureText: !_isPasswordVisible,
-                    style: const TextStyle(color: CupertinoColors.white),
-                    placeholder: 'Password',
-                    placeholderStyle: TextStyle(
-                      color: CupertinoColors.white.withValues(alpha: 0.5),
-                    ),
-                    prefix: Padding(
-                      padding: const EdgeInsets.only(left: 16.0, right: 8.0),
-                      child: Icon(
-                        CupertinoIcons.lock,
-                        color: CupertinoColors.white.withValues(alpha: 0.7),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      prefixIcon: const Icon(Icons.lock_outlined, color: Colors.white70),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                          color: Colors.white70,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _isPasswordVisible = !_isPasswordVisible;
+                          });
+                        },
                       ),
-                    ),
-                    suffix: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      child: Icon(
-                        _isPasswordVisible
-                            ? CupertinoIcons.eye
-                            : CupertinoIcons.eye_slash,
-                        color: CupertinoColors.white.withValues(alpha: 0.7),
+                      fillColor: Colors.white.withValues(alpha: 0.1),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Colors.white24),
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: CupertinoColors.white.withValues(alpha: 0.2),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: Colors.white),
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: CupertinoButton(
-                      padding: EdgeInsets.zero,
+                    child: TextButton(
                       onPressed: _isLoading ? null : _forgotPassword,
                       child: const Text(
                         'Forgot Password?',
                         style: TextStyle(
-                          color: CupertinoColors.white,
+                          color: Colors.white,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  CupertinoButton(
+                  ElevatedButton(
                     onPressed: _isLoading ? null : _login,
-                    color: CupertinoColors.white,
-                    disabledColor: CupertinoColors.white.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(16),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF764BA2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 2,
+                    ),
                     child: _isLoading
-                        ? const CupertinoActivityIndicator()
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF764BA2)),
+                            ),
+                          )
                         : const Text(
                             'LOG IN',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.5,
-                              color: Color(0xFF764BA2),
                             ),
                           ),
                   ),
