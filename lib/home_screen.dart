@@ -352,8 +352,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final defaultDate =
         '${now.day.toString().padLeft(2, '0')}-${months[now.month - 1]}';
 
+    // Date is a mandatory system column. If it's not present in permittedColumns,
+    // prepend it so the user can easily select the date for the new record.
+    final addColumns = List<String>.from(_permittedColumns);
+    final hasDate = addColumns.any((c) => c.toLowerCase() == 'date');
+    if (!hasDate) {
+      addColumns.insert(0, 'Date');
+    }
+
     final controllers = {
-      for (final col in _permittedColumns)
+      for (final col in addColumns)
         col: TextEditingController(
           text: col.toLowerCase() == 'date' ? defaultDate : '',
         ),
@@ -409,7 +417,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: EdgeInsets.zero,
                       onPressed: () {
                         final newRecord = {
-                          for (final col in _permittedColumns)
+                          for (final col in addColumns)
                             col: controllers[col]!.text.trim(),
                         };
                         Navigator.pop(ctx);
@@ -427,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.all(16),
-                  children: _permittedColumns.map((col) {
+                  children: addColumns.map((col) {
                     final isDate = col.toLowerCase() == 'date';
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
