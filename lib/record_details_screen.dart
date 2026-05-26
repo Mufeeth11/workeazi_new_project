@@ -5,7 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-class RecordDetailsScreen extends StatelessWidget {
+class RecordDetailsScreen extends StatefulWidget {
   final Map<String, String> record;
   final List<String> permittedColumns;
 
@@ -15,23 +15,30 @@ class RecordDetailsScreen extends StatelessWidget {
     required this.permittedColumns,
   });
 
+  @override
+  State<RecordDetailsScreen> createState() => _RecordDetailsScreenState();
+}
+
+class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
+  String _selectedExtension = '.pdf'; // Default selected extension
+
   String get _title {
-    final ivNoKey = record.keys.firstWhere(
+    final ivNoKey = widget.record.keys.firstWhere(
       (k) => k.toLowerCase() == 'iv no',
       orElse: () => 'Record Details',
     );
-    return record[ivNoKey] ?? 'Record Details';
+    return widget.record[ivNoKey] ?? 'Record Details';
   }
 
   String get _date {
-    final dateKey = record.keys.firstWhere(
+    final dateKey = widget.record.keys.firstWhere(
       (k) => k.toLowerCase() == 'date',
       orElse: () => '',
     );
-    return dateKey.isNotEmpty ? (record[dateKey] ?? '-') : '-';
+    return dateKey.isNotEmpty ? (widget.record[dateKey] ?? '-') : '-';
   }
 
-  Future<void> _exportToPdf(BuildContext context) async {
+  Future<void> _exportToPdf() async {
     try {
       final pdf = pw.Document();
 
@@ -104,12 +111,12 @@ class RecordDetailsScreen extends StatelessWidget {
                         ],
                       ),
                       // Data Rows
-                      ...permittedColumns.map((col) {
-                        final actualKey = record.keys.firstWhere(
+                      ...widget.permittedColumns.map((col) {
+                        final actualKey = widget.record.keys.firstWhere(
                           (k) => k.toLowerCase() == col.toLowerCase(),
                           orElse: () => col,
                         );
-                        final val = record[actualKey] ?? '-';
+                        final val = widget.record[actualKey] ?? '-';
                         return pw.TableRow(
                           children: [
                             pw.Padding(
@@ -150,13 +157,13 @@ class RecordDetailsScreen extends StatelessWidget {
       final xFile = XFile(file.path);
       await Share.shareXFiles([xFile], text: 'PDF Export for $_title');
     } catch (e) {
-      if (context.mounted) {
-        _showError(context, 'PDF Export failed: $e');
+      if (mounted) {
+        _showError('PDF Export failed: $e');
       }
     }
   }
 
-  Future<void> _exportToDocx(BuildContext context) async {
+  Future<void> _exportToDocx() async {
     try {
       // Create a styled text document representing the details
       final buffer = StringBuffer();
@@ -167,12 +174,12 @@ class RecordDetailsScreen extends StatelessWidget {
       buffer.writeln('Date: $_date');
       buffer.writeln('----------------------------------------');
       
-      for (final col in permittedColumns) {
-        final actualKey = record.keys.firstWhere(
+      for (final col in widget.permittedColumns) {
+        final actualKey = widget.record.keys.firstWhere(
           (k) => k.toLowerCase() == col.toLowerCase(),
           orElse: () => col,
         );
-        final val = record[actualKey] ?? '-';
+        final val = widget.record[actualKey] ?? '-';
         buffer.writeln('${col.padRight(20)}: $val');
       }
       buffer.writeln('========================================');
@@ -185,13 +192,13 @@ class RecordDetailsScreen extends StatelessWidget {
       final xFile = XFile(file.path);
       await Share.shareXFiles([xFile], text: 'DOCX Export for $_title');
     } catch (e) {
-      if (context.mounted) {
-        _showError(context, 'DOCX Export failed: $e');
+      if (mounted) {
+        _showError('DOCX Export failed: $e');
       }
     }
   }
 
-  Future<void> _exportToCsv(BuildContext context) async {
+  Future<void> _exportToCsv() async {
     try {
       final buffer = StringBuffer();
       
@@ -203,12 +210,12 @@ class RecordDetailsScreen extends StatelessWidget {
       buffer.writeln('Date,$_date');
       
       // Columns
-      for (final col in permittedColumns) {
-        final actualKey = record.keys.firstWhere(
+      for (final col in widget.permittedColumns) {
+        final actualKey = widget.record.keys.firstWhere(
           (k) => k.toLowerCase() == col.toLowerCase(),
           orElse: () => col,
         );
-        final val = record[actualKey] ?? '-';
+        final val = widget.record[actualKey] ?? '-';
         // Clean values for CSV compatibility
         final cleanCol = col.contains(',') ? '"$col"' : col;
         final cleanVal = val.contains(',') ? '"$val"' : val;
@@ -222,13 +229,27 @@ class RecordDetailsScreen extends StatelessWidget {
       final xFile = XFile(file.path);
       await Share.shareXFiles([xFile], text: 'CSV Export for $_title');
     } catch (e) {
-      if (context.mounted) {
-        _showError(context, 'CSV Export failed: $e');
+      if (mounted) {
+        _showError('CSV Export failed: $e');
       }
     }
   }
 
-  void _showError(BuildContext context, String message) {
+  void _triggerExport() {
+    switch (_selectedExtension) {
+      case '.pdf':
+        _exportToPdf();
+        break;
+      case '.docx':
+        _exportToDocx();
+        break;
+      case '.csv':
+        _exportToCsv();
+        break;
+    }
+  }
+
+  void _showError(String message) {
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
@@ -244,13 +265,106 @@ class RecordDetailsScreen extends StatelessWidget {
     );
   }
 
+  void _showExtensionPicker() {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext ctx) => CupertinoActionSheet(
+        title: const Text('Select Export Extension', style: TextStyle(fontWeight: FontWeight.bold)),
+        message: const Text('Choose your preferred file format for download'),
+        actions: [
+          CupertinoActionSheetAction(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(CupertinoIcons.doc_richtext, color: Color(0xFF667EEA)),
+                SizedBox(width: 8),
+                Text('PDF Document (.pdf)', style: TextStyle(color: CupertinoColors.black)),
+              ],
+            ),
+            onPressed: () {
+              setState(() {
+                _selectedExtension = '.pdf';
+              });
+              Navigator.pop(ctx);
+            },
+          ),
+          CupertinoActionSheetAction(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(CupertinoIcons.doc_text, color: Color(0xFF4A5568)),
+                SizedBox(width: 8),
+                Text('Word Document (.docx)', style: TextStyle(color: CupertinoColors.black)),
+              ],
+            ),
+            onPressed: () {
+              setState(() {
+                _selectedExtension = '.docx';
+              });
+              Navigator.pop(ctx);
+            },
+          ),
+          CupertinoActionSheetAction(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(CupertinoIcons.table, color: CupertinoColors.activeGreen),
+                SizedBox(width: 8),
+                Text('Spreadsheet (.csv)', style: TextStyle(color: CupertinoColors.black)),
+              ],
+            ),
+            onPressed: () {
+              setState(() {
+                _selectedExtension = '.csv';
+              });
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () {
+            Navigator.pop(ctx);
+          },
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
+
+  IconData _getExtensionIcon() {
+    switch (_selectedExtension) {
+      case '.pdf':
+        return CupertinoIcons.doc_richtext;
+      case '.docx':
+        return CupertinoIcons.doc_text;
+      case '.csv':
+        return CupertinoIcons.table;
+      default:
+        return CupertinoIcons.doc;
+    }
+  }
+
+  Color _getExtensionColor() {
+    switch (_selectedExtension) {
+      case '.pdf':
+        return const Color(0xFF667EEA);
+      case '.docx':
+        return const Color(0xFF4A5568);
+      case '.csv':
+        return CupertinoColors.activeGreen;
+      default:
+        return CupertinoColors.systemBlue;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
-        middle: Text(
+        middle: const Text(
           'Invoice details',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         previousPageTitle: 'Back',
         backgroundColor: const Color(0xFFF2F2F7),
@@ -377,13 +491,13 @@ class RecordDetailsScreen extends StatelessWidget {
                           ),
                         ),
                         Container(height: 0.5, color: CupertinoColors.systemGrey5),
-                        ...permittedColumns.map((col) {
-                          final actualKey = record.keys.firstWhere(
+                        ...widget.permittedColumns.map((col) {
+                          final actualKey = widget.record.keys.firstWhere(
                             (k) => k.toLowerCase() == col.toLowerCase(),
                             orElse: () => col,
                           );
-                          final val = record[actualKey] ?? '-';
-                          final isLast = permittedColumns.last == col;
+                          final val = widget.record[actualKey] ?? '-';
+                          final isLast = widget.permittedColumns.last == col;
 
                           return Column(
                             children: [
@@ -434,11 +548,18 @@ class RecordDetailsScreen extends StatelessWidget {
               ),
             ),
 
-            // Premium Download / Export Options Bottom Bar
+            // Dropdown format selector & prominent export button
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               decoration: BoxDecoration(
                 color: CupertinoColors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: CupertinoColors.systemGrey.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
                 border: const Border(
                   top: BorderSide(color: CupertinoColors.systemGrey5, width: 0.5),
                 ),
@@ -447,91 +568,81 @@ class RecordDetailsScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'EXPORT & DOWNLOAD OPTIONS',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: CupertinoColors.systemGrey,
-                      letterSpacing: 1.1,
+                  // Dropdown format selector row
+                  GestureDetector(
+                    onTap: _showExtensionPicker,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF2F2F7),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: CupertinoColors.systemGrey5, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                _getExtensionIcon(),
+                                color: _getExtensionColor(),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Export File Format',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: CupertinoColors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              Text(
+                                _selectedExtension.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: _getExtensionColor(),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(
+                                CupertinoIcons.chevron_down,
+                                size: 14,
+                                color: CupertinoColors.systemGrey,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      // PDF Download Button
-                      Expanded(
-                        child: CupertinoButton(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          color: const Color(0xFF667EEA),
-                          borderRadius: BorderRadius.circular(12),
-                          onPressed: () => _exportToPdf(context),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(CupertinoIcons.doc_richtext, size: 18),
-                              SizedBox(width: 8),
-                              Text(
-                                'PDF',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
+                  const SizedBox(height: 14),
+
+                  // Prominent Export/Download Button
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    color: const Color(0xFF667EEA),
+                    borderRadius: BorderRadius.circular(12),
+                    onPressed: _triggerExport,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(CupertinoIcons.arrow_down_doc_fill, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Export & Share $_selectedExtension',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      // DOCX Download Button
-                      Expanded(
-                        child: CupertinoButton(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          color: const Color(0xFF4A5568),
-                          borderRadius: BorderRadius.circular(12),
-                          onPressed: () => _exportToDocx(context),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(CupertinoIcons.doc_text, size: 18),
-                              SizedBox(width: 8),
-                              Text(
-                                'DOCX',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      // CSV Download Button
-                      Expanded(
-                        child: CupertinoButton(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          color: CupertinoColors.activeGreen,
-                          borderRadius: BorderRadius.circular(12),
-                          onPressed: () => _exportToCsv(context),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(CupertinoIcons.table, size: 18),
-                              SizedBox(width: 8),
-                              Text(
-                                'CSV',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
