@@ -158,6 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: _permittedColumns.map((col) {
+                    final isDate = col.toLowerCase() == 'date';
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
@@ -166,6 +167,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       child: CupertinoTextField(
                         controller: controllers[col],
+                        readOnly: isDate,
+                        onTap: isDate ? () => _showDatePicker(context, controllers[col]!) : null,
                         prefix: Padding(
                           padding: const EdgeInsets.only(left: 12),
                           child: Text(
@@ -176,12 +179,22 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                        placeholder: 'Enter value',
+                        placeholder: isDate ? 'Select date' : 'Enter value',
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 14,
                         ),
                         decoration: null,
+                        suffix: isDate
+                            ? const Padding(
+                                padding: EdgeInsets.only(right: 12),
+                                child: Icon(
+                                  CupertinoIcons.calendar,
+                                  color: Color(0xFF667EEA),
+                                  size: 20,
+                                ),
+                              )
+                            : null,
                       ),
                     );
                   }).toList(),
@@ -265,6 +278,56 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       _showErrorDialog('Failed to save changes: $e');
     }
+  }
+
+  void _showDatePicker(BuildContext context, TextEditingController controller) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (BuildContext ctx) => Container(
+        height: 300,
+        color: CupertinoColors.systemBackground.resolveFrom(context),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              // Header with Done/Cancel buttons
+              Container(
+                color: CupertinoColors.systemGrey6,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel', style: TextStyle(color: CupertinoColors.systemGrey)),
+                    ),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.date,
+                  initialDateTime: DateTime.now(),
+                  onDateTimeChanged: (DateTime newDate) {
+                    final months = [
+                      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+                    ];
+                    controller.text = '${newDate.day.toString().padLeft(2, '0')}-${months[newDate.month - 1]}';
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // ─── ADD ACTION ──────────────────────────────────────────────────────────────
@@ -365,6 +428,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: _permittedColumns.map((col) {
+                    final isDate = col.toLowerCase() == 'date';
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
@@ -373,6 +437,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       child: CupertinoTextField(
                         controller: controllers[col],
+                        readOnly: isDate,
+                        onTap: isDate ? () => _showDatePicker(context, controllers[col]!) : null,
                         prefix: Padding(
                           padding: const EdgeInsets.only(left: 12),
                           child: Text(
@@ -383,12 +449,22 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ),
-                        placeholder: 'Enter $col',
+                        placeholder: isDate ? 'Select date' : 'Enter $col',
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 14,
                         ),
                         decoration: null,
+                        suffix: isDate
+                            ? const Padding(
+                                padding: EdgeInsets.only(right: 12),
+                                child: Icon(
+                                  CupertinoIcons.calendar,
+                                  color: Color(0xFF667EEA),
+                                  size: 20,
+                                ),
+                              )
+                            : null,
                       ),
                     );
                   }).toList(),
