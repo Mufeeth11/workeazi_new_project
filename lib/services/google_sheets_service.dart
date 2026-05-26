@@ -91,8 +91,9 @@ class GoogleSheetsService {
   }
 
   // Returns null on success, error message on failure
-  static Future<String?> deleteRow({
+  static Future<String?> clearRowToNil({
     required String ivNo,
+    required List<String> permittedColumns,
   }) async {
     try {
       final sheetsApi = await _getSheetsApi();
@@ -142,23 +143,23 @@ class GoogleSheetsService {
       // The 1-based index in the sheet (row index + 1)
       final sheetRowNumber = targetRowIndex + 1;
 
-      // 4. Send the batchUpdate delete request
-      final request = sheets.BatchUpdateSpreadsheetRequest(
-        requests: [
-          sheets.Request(
-            deleteDimension: sheets.DeleteDimensionRequest(
-              range: sheets.DimensionRange(
-                sheetId: 0, // Sheet1 is gid=0
-                dimension: 'ROWS',
-                startIndex: sheetRowNumber - 1, // 0-indexed inclusive
-                endIndex: sheetRowNumber,       // 0-indexed exclusive
-              ),
-            ),
-          ),
-        ],
-      );
-      
-      await sheetsApi.spreadsheets.batchUpdate(request, spreadsheetId);
+      // 4. Update the permitted columns to 'nil'
+      for (final col in permittedColumns) {
+        final colIndex = headers.indexOf(col.toLowerCase().trim());
+        if (colIndex != -1) {
+          final colLetter = _getColLetter(colIndex);
+          final valueRange = sheets.ValueRange(
+            values: [['nil']],
+          );
+          
+          await sheetsApi.spreadsheets.values.update(
+            valueRange,
+            spreadsheetId,
+            'Sheet1!$colLetter$sheetRowNumber',
+            valueInputOption: 'USER_ENTERED',
+          );
+        }
+      }
       return null;
     } catch (e) {
       return 'Google Sheets API error: $e';

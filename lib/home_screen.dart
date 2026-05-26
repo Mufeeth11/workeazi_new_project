@@ -366,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => CupertinoAlertDialog(
         title: const Text('Delete Record'),
         content: const Text(
-          'Are you sure you want to delete this record? This cannot be undone.',
+          'Are you sure you want to delete this record? This will set its permitted columns to "nil".',
         ),
         actions: [
           CupertinoDialogAction(
@@ -404,7 +404,10 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      final error = await GoogleSheetsService.deleteRow(ivNo: ivNo);
+      final error = await GoogleSheetsService.clearRowToNil(
+        ivNo: ivNo,
+        permittedColumns: _permittedColumns,
+      );
       if (error != null) {
         setState(() => _isLoading = false);
         _showErrorDialog(error);
