@@ -166,6 +166,46 @@ class GoogleSheetsService {
     }
   }
 
+  static Future<List<Map<String, String>>?> fetchSheetData() async {
+    try {
+      final sheetsApi = await _getSheetsApi();
+      final response = await sheetsApi.spreadsheets.values.get(spreadsheetId, 'Sheet1!A:Z');
+      final rows = response.values;
+      if (rows == null || rows.isEmpty) {
+        return [];
+      }
+
+      int headerRowIndex = -1;
+      for (int i = 0; i < rows.length; i++) {
+        if (rows[i].isNotEmpty && rows[i][0].toString().toLowerCase() == 'date') {
+          headerRowIndex = i;
+          break;
+        }
+      }
+
+      if (headerRowIndex == -1) {
+        return [];
+      }
+
+      final headers = rows[headerRowIndex].map((h) => h.toString().trim()).toList();
+      List<Map<String, String>> parsedData = [];
+
+      for (int i = headerRowIndex + 1; i < rows.length; i++) {
+        final row = rows[i];
+        if (row.isNotEmpty && row[0].toString().trim().isNotEmpty) {
+          final rowData = <String, String>{};
+          for (int j = 0; j < row.length && j < headers.length; j++) {
+            rowData[headers[j]] = row[j].toString().trim();
+          }
+          parsedData.add(rowData);
+        }
+      }
+      return parsedData;
+    } catch (e) {
+      return null;
+    }
+  }
+
   static String _getColLetter(int colIndex) {
     String letter = '';
     while (colIndex >= 0) {

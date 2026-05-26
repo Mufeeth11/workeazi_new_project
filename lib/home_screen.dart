@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'services/google_sheets_service.dart';
 
-
 class HomeScreen extends StatefulWidget {
   final String loginId;
   final String permissions;
@@ -105,43 +104,10 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
-      // 2. Fetch Sheet1 data
-      final url = Uri.parse(
-        'https://docs.google.com/spreadsheets/d/1lkImcQTYrsKBc4eafO6AOyRqlqhXTXnn40gYb4B5jzM/export?format=csv&gid=0&t=$timestamp',
-      );
-      final response = await http.get(
-        url,
-        headers: {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'},
-      );
+      // 2. Fetch Sheet1 data directly from Google Sheets API to bypass caching
+      final parsedData = await GoogleSheetsService.fetchSheetData();
 
-      if (response.statusCode == 200) {
-        final lines = utf8.decode(response.bodyBytes).split('\n');
-        List<String> headers = [];
-        List<Map<String, String>> parsedData = [];
-        bool headersFound = false;
-
-        for (final rawLine in lines) {
-          final line = rawLine.trim();
-          if (line.isEmpty) continue;
-          final cols = _parseCsvLine(line);
-
-          if (!headersFound) {
-            if (cols.isNotEmpty && cols[0].trim().toLowerCase() == 'date') {
-              headers = cols.map((e) => e.trim()).toList();
-              headersFound = true;
-            }
-            continue;
-          }
-
-          if (cols.isNotEmpty && cols[0].trim().isNotEmpty) {
-            final rowData = <String, String>{};
-            for (int j = 0; j < cols.length && j < headers.length; j++) {
-              rowData[headers[j]] = cols[j].trim();
-            }
-            parsedData.add(rowData);
-          }
-        }
-
+      if (parsedData != null) {
         if (mounted) {
           setState(() {
             _dataList = parsedData;
@@ -162,7 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final controllers = {
       for (final col in _permittedColumns)
         col: TextEditingController(
-          text: item[item.keys.firstWhere(
+          text:
+              item[item.keys.firstWhere(
                 (k) => k.toLowerCase() == col.toLowerCase(),
                 orElse: () => col,
               )] ??
@@ -211,8 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: () => Navigator.pop(ctx),
                         child: const Text(
                           'Cancel',
-                          style:
-                              TextStyle(color: CupertinoColors.systemGrey),
+                          style: TextStyle(color: CupertinoColors.systemGrey),
                         ),
                       ),
                       const Text(
@@ -231,8 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   isSaving = true;
                                   errorMsg = null;
                                 });
-                                final err =
-                                    await _saveEdit(item, controllers);
+                                final err = await _saveEdit(item, controllers);
                                 if (err == null) {
                                   if (ctx.mounted) Navigator.pop(ctx);
                                 } else {
@@ -256,11 +221,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: double.infinity,
                     color: CupertinoColors.systemRed.withValues(alpha: 0.1),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     child: Row(
                       children: [
-                        const Icon(CupertinoIcons.exclamationmark_circle,
-                            size: 16, color: CupertinoColors.systemRed),
+                        const Icon(
+                          CupertinoIcons.exclamationmark_circle,
+                          size: 16,
+                          color: CupertinoColors.systemRed,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -551,7 +521,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ],
-                      ), minimumSize: Size(0, 0),
+                      ),
+                      minimumSize: Size(0, 0),
                     ),
                   if (_canWrite && _canDelete) const SizedBox(width: 8),
                   if (_canDelete)
@@ -581,7 +552,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ],
-                      ), minimumSize: Size(0, 0),
+                      ),
+                      minimumSize: Size(0, 0),
                     ),
                 ],
               ),
