@@ -714,17 +714,49 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ],
                           ),
-                          child: CupertinoSearchTextField(
+                          child: CupertinoTextField(
                             controller: _searchController,
                             placeholder: 'Search records...',
-                            style: const TextStyle(fontSize: 15),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: CupertinoColors.black,
+                            ),
                             placeholderStyle: const TextStyle(
-                              color: CupertinoColors.placeholderText,
+                              color: CupertinoColors.systemGrey,
                               fontSize: 15,
                             ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 14,
                             ),
+                            decoration: null,
+                            prefix: const Padding(
+                              padding: EdgeInsets.only(left: 14),
+                              child: Icon(
+                                CupertinoIcons.search,
+                                size: 20,
+                                color: Color(0xFF667EEA),
+                              ),
+                            ),
+                            suffix: _searchQuery.isNotEmpty
+                                ? CupertinoButton(
+                                    padding: EdgeInsets.zero,
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _searchQuery = '';
+                                      });
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(right: 14),
+                                      child: Icon(
+                                        CupertinoIcons.clear,
+                                        size: 18,
+                                        color: CupertinoColors.systemGrey3,
+                                      ),
+                                    ),
+                                  )
+                                : null,
                             onChanged: (val) {
                               setState(() {
                                 _searchQuery = val.trim();
