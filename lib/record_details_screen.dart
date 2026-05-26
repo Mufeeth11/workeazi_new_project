@@ -23,6 +23,42 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   String _selectedExtension = '.pdf'; // Default selected extension
   bool _isDropdownOpen = false; // Whether the custom format dropdown is expanded
 
+  String _formatValueForDocxOrCsv(String col, String val) {
+    if (val.isEmpty || val == '-') return val;
+    final lowerCol = col.toLowerCase();
+    final isMonetary = lowerCol.contains('value') ||
+                       lowerCol.contains('amount') ||
+                       lowerCol.contains('price') ||
+                       lowerCol.contains('total') ||
+                       lowerCol.contains('balance') ||
+                       lowerCol.contains('paid');
+                       
+    if (isMonetary) {
+      if (!val.contains('\u20B9') && !val.contains('Rs') && !val.contains('\$')) {
+        return '\u20B9$val';
+      }
+    }
+    return val;
+  }
+
+  String _formatValueForPdf(String col, String val) {
+    if (val.isEmpty || val == '-') return val;
+    final lowerCol = col.toLowerCase();
+    final isMonetary = lowerCol.contains('value') ||
+                       lowerCol.contains('amount') ||
+                       lowerCol.contains('price') ||
+                       lowerCol.contains('total') ||
+                       lowerCol.contains('balance') ||
+                       lowerCol.contains('paid');
+                       
+    if (isMonetary) {
+      if (!val.contains('\u20B9') && !val.contains('Rs') && !val.contains('\$')) {
+        return 'Rs. $val';
+      }
+    }
+    return val;
+  }
+
   String get _title {
     final ivNoKey = widget.record.keys.firstWhere(
       (k) => k.toLowerCase() == 'iv no',
@@ -126,7 +162,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                             ),
                             pw.Padding(
                               padding: const pw.EdgeInsets.all(8),
-                              child: pw.Text(val),
+                              child: pw.Text(_formatValueForPdf(col, val)),
                             ),
                           ],
                         );
@@ -181,7 +217,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
           orElse: () => col,
         );
         final val = widget.record[actualKey] ?? '-';
-        buffer.writeln('${col.padRight(20)}: $val');
+        buffer.writeln('${col.padRight(20)}: ${_formatValueForDocxOrCsv(col, val)}');
       }
       buffer.writeln('========================================');
       buffer.writeln('Generated via WorkEazi User Portal.');
@@ -217,9 +253,10 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
           orElse: () => col,
         );
         final val = widget.record[actualKey] ?? '-';
+        final formattedVal = _formatValueForDocxOrCsv(col, val);
         // Clean values for CSV compatibility
         final cleanCol = col.contains(',') ? '"$col"' : col;
-        final cleanVal = val.contains(',') ? '"$val"' : val;
+        final cleanVal = formattedVal.contains(',') ? '"$formattedVal"' : formattedVal;
         buffer.writeln('$cleanCol,$cleanVal');
       }
 
@@ -495,7 +532,7 @@ class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
                                     const SizedBox(width: 16),
                                     Expanded(
                                       child: Text(
-                                        val.isEmpty ? '-' : val,
+                                        _formatValueForDocxOrCsv(col, val.isEmpty ? '-' : val),
                                         textAlign: TextAlign.right,
                                         style: const TextStyle(
                                           fontSize: 15,

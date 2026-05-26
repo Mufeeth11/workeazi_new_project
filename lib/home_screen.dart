@@ -451,6 +451,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _formatCardValue(String col, String val) {
+    if (val.isEmpty || val == '-') return val;
+    final lowerCol = col.toLowerCase();
+    final isMonetary = lowerCol.contains('value') ||
+                       lowerCol.contains('amount') ||
+                       lowerCol.contains('price') ||
+                       lowerCol.contains('total') ||
+                       lowerCol.contains('balance') ||
+                       lowerCol.contains('paid');
+                       
+    if (isMonetary) {
+      if (!val.contains('\u20B9') && !val.contains('Rs') && !val.contains('\$')) {
+        return '\u20B9$val';
+      }
+    }
+    return val;
+  }
+
   Widget _buildCard(Map<String, String> item) {
     return GestureDetector(
       onTap: () {
@@ -608,7 +626,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(
-                          val.isEmpty ? '-' : val,
+                          _formatCardValue(col, val.isEmpty ? '-' : val),
                           textAlign: TextAlign.right,
                           style: const TextStyle(
                             fontSize: 15,
