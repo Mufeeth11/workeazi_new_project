@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Google Credentials / Secrets
+*credentials.json
+google-sheets-credentials.json
+assets/google-sheets-credentials.json

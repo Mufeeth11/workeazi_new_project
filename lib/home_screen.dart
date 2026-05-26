@@ -2,9 +2,8 @@ import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'services/google_sheets_service.dart';
 
-// ⚠️ Replace with your deployed Google Apps Script Web App URL
-const String _appsScriptUrl = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
 
 class HomeScreen extends StatefulWidget {
   final String loginId;
@@ -255,7 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (errorMsg != null)
                   Container(
                     width: double.infinity,
-                    color: CupertinoColors.systemRed.withOpacity(0.1),
+                    color: CupertinoColors.systemRed.withValues(alpha: 0.1),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 10),
                     child: Row(
@@ -325,11 +324,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Map<String, String> item,
     Map<String, TextEditingController> controllers,
   ) async {
-    // Guard: Apps Script URL not configured
-    if (_appsScriptUrl == 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
-      return 'Apps Script URL is not configured.\nPlease contact the administrator.';
-    }
-
     try {
       final ivNo =
           item['IV NO'] ??
@@ -347,32 +341,20 @@ class _HomeScreenState extends State<HomeScreen> {
         for (final col in _permittedColumns) col: controllers[col]!.text.trim(),
       };
 
-      final response = await http.post(
-        Uri.parse(_appsScriptUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'action': 'edit', 'ivNo': ivNo, 'updates': updates}),
+      final error = await GoogleSheetsService.editRow(
+        ivNo: ivNo,
+        updates: updates,
       );
 
-      // Check HTTP status
-      if (response.statusCode != 200) {
-        return 'Server error (HTTP ${response.statusCode}).\nPlease try again.';
-      }
-
-      // Parse Apps Script JSON response
-      try {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        if (json['status'] == 'error') {
-          return json['message']?.toString() ?? 'Unknown error from server.';
-        }
-      } catch (_) {
-        // Response wasn't JSON — still treat as success if status 200
+      if (error != null) {
+        return error;
       }
 
       // Success — refresh data
       await _fetchSheetData();
       return null;
     } catch (e) {
-      return 'Failed to connect to the server.\nCheck your internet connection.';
+      return 'Failed to save changes: $e';
     }
   }
 
@@ -416,31 +398,42 @@ class _HomeScreenState extends State<HomeScreen> {
           )] ??
           '';
 
-      await http.post(
-        Uri.parse(_appsScriptUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'action': 'delete', 'ivNo': ivNo}),
-      );
+      if (ivNo.isEmpty) {
+        setState(() => _isLoading = false);
+        _showErrorDialog('Could not find a row identifier (IV NO).');
+        return;
+      }
+
+      final error = await GoogleSheetsService.deleteRow(ivNo: ivNo);
+      if (error != null) {
+        setState(() => _isLoading = false);
+        _showErrorDialog(error);
+        return;
+      }
 
       await _fetchSheetData();
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        showCupertinoDialog(
-          context: context,
-          builder: (ctx) => CupertinoAlertDialog(
-            title: const Text('Error'),
-            content: Text('Failed to delete: $e'),
-            actions: [
-              CupertinoDialogAction(
-                isDefaultAction: true,
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
+      setState(() => _isLoading = false);
+      _showErrorDialog('Failed to delete: $e');
+    }
+  }
+
+  void _showErrorDialog(String message) {
+    if (mounted) {
+      showCupertinoDialog(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('Error'),
+          content: Text(message),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -534,8 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         horizontal: 12,
                         vertical: 6,
                       ),
-                      minSize: 0,
-                      color: CupertinoColors.systemBlue.withOpacity(0.1),
+                      color: CupertinoColors.systemBlue.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                       onPressed: () => _showEditSheet(item),
                       child: const Row(
@@ -556,7 +548,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ],
-                      ),
+                      ), minimumSize: Size(0, 0),
                     ),
                   if (_canWrite && _canDelete) const SizedBox(width: 8),
                   if (_canDelete)
@@ -565,8 +557,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         horizontal: 12,
                         vertical: 6,
                       ),
-                      minSize: 0,
-                      color: CupertinoColors.systemRed.withOpacity(0.1),
+                      color: CupertinoColors.systemRed.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                       onPressed: () => _confirmDelete(item),
                       child: const Row(
@@ -587,7 +578,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                         ],
-                      ),
+                      ), minimumSize: Size(0, 0),
                     ),
                 ],
               ),
